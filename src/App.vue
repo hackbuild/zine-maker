@@ -1,5 +1,5 @@
 <template>
-  <div id="app">
+  <div id="app" :data-theme="theme">
     <ImageUploadModal 
       :visible="uiStore.showImageUploadModal" 
       @close="uiStore.showImageUploadModal = false"
@@ -24,6 +24,11 @@
         </div>
         
         <div class="header-right">
+          <button @click="toggleTheme" class="header-button" :title="`Switch to ${theme==='dark'?'Light':'Dark'} Theme`">
+            <Sun v-if="theme==='dark'" :size="16" />
+            <Moon v-else :size="16" />
+            <span>{{ theme==='dark' ? 'Light' : 'Dark' }} Theme</span>
+          </button>
           <button @click="uiStore.showTemplateSelectorModal()" class="header-button">
             <FilePlus :size="16" />
             <span>New Project</span>
@@ -49,7 +54,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import TemplateSelector from '@/components/TemplateSelector.vue';
 import KonvaPageEditor from '@/components/KonvaPageEditor.vue';
 import PropertiesPanel from '@/components/properties/PropertiesPanel.vue';
@@ -59,7 +64,7 @@ import ExportModal from '@/components/ExportModal.vue';
 import { useProjectStore } from '@/stores/project';
 import { useUIStore } from '@/stores/ui';
 import { useToolsStore } from '@/stores/tools';
-import { FilePlus, PanelLeft, PanelRight } from 'lucide-vue-next';
+import { FilePlus, PanelLeft, PanelRight, Sun, Moon } from 'lucide-vue-next';
 import { useAssetStore } from '@/stores/assetStore';
 import { getLastOpenProjectId, loadProject } from '@/utils/persistence';
 
@@ -68,9 +73,14 @@ const uiStore = useUIStore();
 const toolsStore = useToolsStore();
 const assetStore = useAssetStore();
 
+const theme = ref<'light'|'dark'>( (localStorage.getItem('theme') as any) || 'light');
+function applyTheme() { document.documentElement.setAttribute('data-theme', theme.value); }
+function toggleTheme(){ theme.value = theme.value==='dark' ? 'light' : 'dark'; localStorage.setItem('theme', theme.value); applyTheme(); }
+
 onMounted(async () => {
   setupKeyboardShortcuts();
   await assetStore.initDB();
+  applyTheme();
   
   // Attempt to load the last open project
   const lastProjectId = getLastOpenProjectId();
@@ -140,6 +150,18 @@ function handleKeyDown(event: KeyboardEvent): void {
         event.preventDefault();
       }
       break;
+  }
+
+  // Undo/Redo shortcuts
+  if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z') {
+    projectStore.undo();
+    event.preventDefault();
+    return;
+  }
+  if ((event.ctrlKey || event.metaKey) && (event.shiftKey && event.key.toLowerCase() === 'z')) {
+    projectStore.redo();
+    event.preventDefault();
+    return;
   }
 
   // Page navigation

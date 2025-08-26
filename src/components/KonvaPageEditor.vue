@@ -103,10 +103,12 @@ import { useAssetStore } from '@/stores/assetStore';
 import type { TextProperties, ImageProperties, ShapeProperties } from '@/types';
 import Konva from 'konva';
 import AppToolbar from './AppToolbar.vue';
+import { useUIStore } from '@/stores/ui';
 
 const projectStore = useProjectStore();
 const toolsStore = useToolsStore();
 const assetStore = useAssetStore();
+const uiStore = useUIStore();
 
 const stageRef = ref<any>(null);
 const contentLayerRef = ref<any>(null);
@@ -137,9 +139,7 @@ const pageBackgroundConfig = computed(() => {
     width: pagePos.width,
     height: pagePos.height,
     fill: 'white',
-    stroke: '#e5e7eb',
-    strokeWidth: 1,
-    listening: true // Allow it to receive click events for deselection
+    listening: true // use as deselect area only
   };
 });
 
@@ -369,6 +369,25 @@ function onWheel(e: any) {
   stage.position(newPos);
   stage.batchDraw();
 }
+
+// Watch for fit requests from UI store
+watch(() => uiStore.shouldFit, (flag) => {
+  if (!flag) return;
+  const stage = stageRef.value?.getNode?.();
+  if (!stage) { uiStore.shouldFit = false as any; return; }
+  const bg = pageBackgroundConfig.value;
+  const container = stage.container().parentElement as HTMLElement;
+  const availW = container?.clientWidth || stage.width();
+  const availH = container?.clientHeight || stage.height();
+  const margin = 80;
+  const scale = Math.min((availW - margin) / (bg.width + 100), (availH - margin) / (bg.height + 100));
+  stage.scale({ x: scale, y: scale });
+  const centerX = (availW - (bg.width + 100) * scale) / 2;
+  const centerY = (availH - (bg.height + 100) * scale) / 2;
+  stage.position({ x: centerX, y: centerY });
+  stage.batchDraw();
+  uiStore.shouldFit = false as any;
+});
 
 onMounted(() => {
   const tr = transformerRef.value?.getNode?.();

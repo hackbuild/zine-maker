@@ -53,6 +53,10 @@ export interface ZineContent {
   rotation: number;
   zIndex: number;
   properties: TextProperties | ImageProperties | ShapeProperties | DrawingProperties;
+  visible?: boolean;
+  locked?: boolean;
+  groupId?: string;
+  name?: string;
 }
 
 export interface TextProperties {

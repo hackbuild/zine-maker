@@ -10,6 +10,66 @@ export const useProjectStore = defineStore('project', () => {
   const selectedContentIds = ref<string[]>([]);
   const isModified = ref(false);
 
+  // History (Command-style)
+  type HistoryEntry = { name?: string; undo: () => void; redo: () => void };
+  const undoStack = ref<HistoryEntry[]>([]);
+  const redoStack = ref<HistoryEntry[]>([]);
+  const isBatching = ref(false);
+  let batchName: string | undefined;
+  let batchEntries: HistoryEntry[] = [];
+
+  function pushHistory(entry: HistoryEntry) {
+    if (isBatching.value) {
+      batchEntries.push(entry);
+    } else {
+      undoStack.value.push(entry);
+      redoStack.value = [];
+    }
+    isModified.value = true;
+  }
+
+  function beginBatch(name?: string): void {
+    isBatching.value = true;
+    batchEntries = [];
+    batchName = name;
+  }
+
+  function endBatch(): void {
+    if (!isBatching.value) return;
+    isBatching.value = false;
+    if (batchEntries.length === 0) return;
+    const entries = batchEntries.slice();
+    const entry: HistoryEntry = {
+      name: batchName,
+      undo: () => { for (let i = entries.length - 1; i >= 0; i--) entries[i].undo(); },
+      redo: () => { for (let i = 0; i < entries.length; i++) entries[i].redo(); }
+    };
+    undoStack.value.push(entry);
+    redoStack.value = [];
+    batchEntries = [];
+    batchName = undefined;
+    isModified.value = true;
+  }
+
+  const canUndo = computed(() => undoStack.value.length > 0);
+  const canRedo = computed(() => redoStack.value.length > 0);
+
+  function undo(): void {
+    const entry = undoStack.value.pop();
+    if (!entry) return;
+    entry.undo();
+    redoStack.value.push(entry);
+    isModified.value = true;
+  }
+
+  function redo(): void {
+    const entry = redoStack.value.pop();
+    if (!entry) return;
+    entry.redo();
+    undoStack.value.push(entry);
+    isModified.value = true;
+  }
+
   // Auto-save watcher
   const debouncedSave = debounce((project: ZineProject) => {
     saveProject(toRaw(project));
@@ -62,6 +122,8 @@ export const useProjectStore = defineStore('project', () => {
     currentPageIndex.value = 0;
     selectedContentIds.value = [];
     isModified.value = false;
+    undoStack.value = [];
+    redoStack.value = [];
   }
 
   function loadProject(project: ZineProject): void {
@@ -72,6 +134,8 @@ export const useProjectStore = defineStore('project', () => {
     currentPageIndex.value = 0;
     selectedContentIds.value = [];
     isModified.value = false;
+    undoStack.value = [];
+    redoStack.value = [];
   }
 
   function setCurrentPage(index: number): void {
@@ -91,6 +155,24 @@ export const useProjectStore = defineStore('project', () => {
 
     currentPage.value.content.push(newContent);
     isModified.value = true;
+
+    const snapshot = JSON.parse(JSON.stringify(newContent)) as ZineContent;
+    pushHistory({
+      name: 'addContent',
+      undo: () => {
+        const page = currentPage.value;
+        if (!page) return;
+        const idx = page.content.findIndex(c => c.id === snapshot.id);
+        if (idx !== -1) page.content.splice(idx, 1);
+      },
+      redo: () => {
+        const page = currentPage.value;
+        if (!page) return;
+        if (!page.content.find(c => c.id === snapshot.id)) {
+          page.content.push(JSON.parse(JSON.stringify(snapshot)));
+        }
+      }
+    });
   }
 
   function updateContent(contentId: string, updates: Partial<ZineContent>): void {
@@ -98,11 +180,34 @@ export const useProjectStore = defineStore('project', () => {
 
     const contentIndex = currentPage.value.content.findIndex(c => c.id === contentId);
     if (contentIndex !== -1) {
-      currentPage.value.content[contentIndex] = {
-        ...currentPage.value.content[contentIndex],
-        ...updates
-      };
+      const existing = currentPage.value.content[contentIndex];
+      const prev = JSON.parse(JSON.stringify(existing)) as ZineContent;
+      const next = { ...existing, ...updates } as ZineContent;
+      // Maintain z-order by sorting on zIndex after update
+      currentPage.value.content.splice(contentIndex, 1, next);
+      currentPage.value.content.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
       isModified.value = true;
+
+      const after = JSON.parse(JSON.stringify(next)) as ZineContent;
+      pushHistory({
+        name: 'updateContent',
+        undo: () => {
+          const page = currentPage.value; if (!page) return;
+          const idx = page.content.findIndex(c => c.id === prev.id);
+          if (idx !== -1) {
+            page.content.splice(idx, 1, JSON.parse(JSON.stringify(prev)));
+            page.content.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+          }
+        },
+        redo: () => {
+          const page = currentPage.value; if (!page) return;
+          const idx = page.content.findIndex(c => c.id === after.id);
+          if (idx !== -1) {
+            page.content.splice(idx, 1, JSON.parse(JSON.stringify(after)));
+            page.content.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+          }
+        }
+      });
     }
   }
 
@@ -111,10 +216,198 @@ export const useProjectStore = defineStore('project', () => {
 
     const contentIndex = currentPage.value.content.findIndex(c => c.id === contentId);
     if (contentIndex !== -1) {
+      const removed = currentPage.value.content[contentIndex];
+      const removedSnapshot = JSON.parse(JSON.stringify(removed)) as ZineContent;
       currentPage.value.content.splice(contentIndex, 1);
       selectedContentIds.value = selectedContentIds.value.filter(id => id !== contentId);
       isModified.value = true;
+
+      const indexForReinsert = contentIndex;
+      pushHistory({
+        name: 'deleteContent',
+        undo: () => {
+          const page = currentPage.value; if (!page) return;
+          page.content.splice(indexForReinsert, 0, JSON.parse(JSON.stringify(removedSnapshot)));
+        },
+        redo: () => {
+          const page = currentPage.value; if (!page) return;
+          const idx = page.content.findIndex(c => c.id === removedSnapshot.id);
+          if (idx !== -1) page.content.splice(idx, 1);
+        }
+      });
     }
+  }
+
+  function setContentVisibility(ids: string[], visible: boolean): void {
+    if (!currentPage.value) return;
+    const before = ids.map(id => {
+      const c = currentPage.value!.content.find(i => i.id === id);
+      return { id, visible: c?.visible } as { id: string; visible: boolean | undefined };
+    });
+    ids.forEach(id => {
+      const c = currentPage.value!.content.find(i => i.id === id);
+      if (c) c.visible = visible;
+    });
+    isModified.value = true;
+
+    pushHistory({
+      name: 'setVisibility',
+      undo: () => {
+        const page = currentPage.value; if (!page) return;
+        before.forEach(({ id, visible }) => {
+          const c = page.content.find(i => i.id === id);
+          if (c) c.visible = visible;
+        });
+      },
+      redo: () => {
+        const page = currentPage.value; if (!page) return;
+        ids.forEach(id => {
+          const c = page.content.find(i => i.id === id);
+          if (c) c.visible = visible;
+        });
+      }
+    });
+  }
+
+  function setContentLocked(ids: string[], locked: boolean): void {
+    if (!currentPage.value) return;
+    const before = ids.map(id => {
+      const c = currentPage.value!.content.find(i => i.id === id);
+      return { id, locked: c?.locked } as { id: string; locked: boolean | undefined };
+    });
+    ids.forEach(id => {
+      const c = currentPage.value!.content.find(i => i.id === id);
+      if (c) c.locked = locked;
+    });
+    isModified.value = true;
+
+    pushHistory({
+      name: 'setLocked',
+      undo: () => {
+        const page = currentPage.value; if (!page) return;
+        before.forEach(({ id, locked }) => {
+          const c = page.content.find(i => i.id === id);
+          if (c) c.locked = locked;
+        });
+      },
+      redo: () => {
+        const page = currentPage.value; if (!page) return;
+        ids.forEach(id => {
+          const c = page.content.find(i => i.id === id);
+          if (c) c.locked = locked;
+        });
+      }
+    });
+  }
+
+  function reorderContent(order: string[]): void {
+    if (!currentPage.value) return;
+    // order is array of content ids from back to front
+    const prevOrder = currentPage.value.content.map(c => c.id);
+    const newContent: ZineContent[] = [];
+    order.forEach((id, idx) => {
+      const item = currentPage.value!.content.find(c => c.id === id);
+      if (item) {
+        item.zIndex = idx;
+        newContent.push(item);
+      }
+    });
+    currentPage.value.content = newContent;
+    isModified.value = true;
+
+    pushHistory({
+      name: 'reorder',
+      undo: () => {
+        const page = currentPage.value; if (!page) return;
+        const rebuilt: ZineContent[] = [];
+        prevOrder.forEach((id, idx) => {
+          const item = page.content.find(c => c.id === id);
+          if (item) {
+            item.zIndex = idx;
+            rebuilt.push(item);
+          }
+        });
+        page.content = rebuilt;
+      },
+      redo: () => {
+        const page = currentPage.value; if (!page) return;
+        const rebuilt: ZineContent[] = [];
+        order.forEach((id, idx) => {
+          const item = page.content.find(c => c.id === id);
+          if (item) {
+            item.zIndex = idx;
+            rebuilt.push(item);
+          }
+        });
+        page.content = rebuilt;
+      }
+    });
+  }
+
+  function groupSelected(): string | null {
+    if (!currentPage.value || selectedContentIds.value.length < 2) return null;
+    const groupId = `group-${Date.now()}`;
+    const before = selectedContentIds.value.map(id => {
+      const item = currentPage.value!.content.find(c => c.id === id);
+      return { id, groupId: item?.groupId } as { id: string; groupId?: string };
+    });
+    selectedContentIds.value.forEach(id => {
+      const item = currentPage.value!.content.find(c => c.id === id);
+      if (item) item.groupId = groupId;
+    });
+    isModified.value = true;
+
+    pushHistory({
+      name: 'group',
+      undo: () => {
+        const page = currentPage.value; if (!page) return;
+        before.forEach(({ id, groupId }) => {
+          const item = page.content.find(c => c.id === id);
+          if (item) item.groupId = groupId;
+        });
+      },
+      redo: () => {
+        const page = currentPage.value; if (!page) return;
+        selectedContentIds.value.forEach(id => {
+          const item = page.content.find(c => c.id === id);
+          if (item) item.groupId = groupId;
+        });
+      }
+    });
+    return groupId;
+  }
+
+  function ungroupSelected(): void {
+    if (!currentPage.value || selectedContentIds.value.length === 0) return;
+    const before = selectedContentIds.value.map(id => {
+      const item = currentPage.value!.content.find(c => c.id === id);
+      return { id, groupId: item?.groupId } as { id: string; groupId?: string };
+    });
+    selectedContentIds.value.forEach(id => {
+      const item = currentPage.value!.content.find(c => c.id === id);
+      if (item) delete item.groupId;
+    });
+    isModified.value = true;
+
+    pushHistory({
+      name: 'ungroup',
+      undo: () => {
+        const page = currentPage.value; if (!page) return;
+        before.forEach(({ id, groupId }) => {
+          const item = page.content.find(c => c.id === id);
+          if (item) {
+            if (groupId) item.groupId = groupId; else delete item.groupId;
+          }
+        });
+      },
+      redo: () => {
+        const page = currentPage.value; if (!page) return;
+        selectedContentIds.value.forEach(id => {
+          const item = page.content.find(c => c.id === id);
+          if (item) delete item.groupId;
+        });
+      }
+    });
   }
 
   function selectContent(contentId: string, addToSelection = false): void {
@@ -133,31 +426,61 @@ export const useProjectStore = defineStore('project', () => {
 
   function updatePageBackground(backgroundColor: string, backgroundImage?: string): void {
     if (!currentPage.value) return;
-
+    const prevColor = currentPage.value.backgroundColor;
+    const prevImage = currentPage.value.backgroundImage;
     currentPage.value.backgroundColor = backgroundColor;
     if (backgroundImage !== undefined) {
       currentPage.value.backgroundImage = backgroundImage;
     }
     isModified.value = true;
+
+    pushHistory({
+      name: 'updateBackground',
+      undo: () => {
+        if (!currentPage.value) return;
+        currentPage.value.backgroundColor = prevColor;
+        currentPage.value.backgroundImage = prevImage;
+      },
+      redo: () => {
+        if (!currentPage.value) return;
+        currentPage.value.backgroundColor = backgroundColor;
+        if (backgroundImage !== undefined) {
+          currentPage.value.backgroundImage = backgroundImage;
+        }
+      }
+    });
   }
 
   function updateProjectMetadata(metadata: Partial<ZineProject['metadata']>): void {
     if (!currentProject.value) return;
-
+    const prev = JSON.parse(JSON.stringify(currentProject.value.metadata));
     currentProject.value.metadata = {
       ...currentProject.value.metadata,
       ...metadata
     };
     currentProject.value.modifiedAt = new Date();
     isModified.value = true;
+
+    const next = JSON.parse(JSON.stringify(currentProject.value.metadata));
+    pushHistory({
+      name: 'updateMetadata',
+      undo: () => { if (!currentProject.value) return; currentProject.value.metadata = JSON.parse(JSON.stringify(prev)); },
+      redo: () => { if (!currentProject.value) return; currentProject.value.metadata = JSON.parse(JSON.stringify(next)); }
+    });
   }
 
   function updateProjectName(name: string): void {
     if (!currentProject.value) return;
-
+    const prev = currentProject.value.name;
     currentProject.value.name = name;
     currentProject.value.modifiedAt = new Date();
     isModified.value = true;
+
+    pushHistory({
+      name: 'updateProjectName',
+      undo: () => { if (!currentProject.value) return; currentProject.value.name = prev; },
+      redo: () => { if (!currentProject.value) return; currentProject.value.name = name; }
+    });
   }
 
   function getContentById(contentId: string): ZineContent | null {
@@ -193,12 +516,24 @@ export const useProjectStore = defineStore('project', () => {
     pageCount,
     selectedContentIds,
     isModified,
+    // history API
+    canUndo,
+    canRedo,
+    undo,
+    redo,
+    beginBatch,
+    endBatch,
     createNewProject,
     loadProject,
     setCurrentPage,
     addContentToCurrentPage,
     updateContent,
     deleteContent,
+    setContentVisibility,
+    setContentLocked,
+    reorderContent,
+    groupSelected,
+    ungroupSelected,
     selectContent,
     clearSelection,
     updatePageBackground,

@@ -13,6 +13,7 @@ export const useUIStore = defineStore('ui', () => {
   const exportPdfData = ref('');
   const zoom = ref(1);
   const canvasOffset = ref({ x: 0, y: 0 });
+  const shouldFit = ref(false);
 
   function hideTemplateSelector(): void {
     showTemplateSelector.value = false;
@@ -38,6 +39,10 @@ export const useUIStore = defineStore('ui', () => {
     canvasOffset.value = { x, y };
   }
 
+  function requestFit(): void {
+    shouldFit.value = true;
+  }
+
   return {
     showTemplateSelector,
     showPageList,
@@ -50,11 +55,13 @@ export const useUIStore = defineStore('ui', () => {
     exportPdfData,
     zoom,
     canvasOffset,
+    shouldFit,
     hideTemplateSelector,
     showTemplateSelectorModal,
     togglePageList,
     toggleProperties,
     setZoom,
-    setCanvasOffset
+    setCanvasOffset,
+    requestFit
   };
 });

@@ -58,20 +58,50 @@
           </div>
         </div>
       </div>
+
+      <!-- Zoom controls -->
+      <div class="zoom-controls">
+        <button class="tool-button" @click="zoomOut" title="Zoom Out">
+          <component :is="Minus" :size="20" />
+        </button>
+        <button class="tool-button" @click="fit" title="Fit">
+          <component :is="Maximize2" :size="20" />
+        </button>
+        <button class="tool-button" @click="zoomIn" title="Zoom In">
+          <component :is="Plus" :size="20" />
+        </button>
+      </div>
+      
+      <div class="history-controls">
+        <button class="tool-button" :disabled="!projectStoreCanUndo" @click="undo" title="Undo (⌘/Ctrl+Z)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14l-5-5 5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+        </button>
+        <button class="tool-button" :disabled="!projectStoreCanRedo" @click="redo" title="Redo (⇧+⌘/Ctrl+Z)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, markRaw, type Component } from 'vue';
+import { ref, markRaw, type Component, computed } from 'vue';
 import { useToolsStore } from '@/stores/tools';
 import { useUIStore } from '@/stores/ui';
 import { onClickOutside } from '@vueuse/core';
 import type { ShapeProperties, ToolType } from '@/types';
-import { Square, Circle, Minus, Triangle } from 'lucide-vue-next';
+import { Square, Circle, Minus, Triangle, Plus, Maximize2 } from 'lucide-vue-next';
+import { useProjectStore } from '@/stores/project';
 
 const toolsStore = useToolsStore();
 const uiStore = useUIStore();
+const projectStore = useProjectStore();
+
+const projectStoreCanUndo = computed(() => projectStore.canUndo);
+const projectStoreCanRedo = computed(() => projectStore.canRedo);
+
+function undo(){ if (projectStoreCanUndo.value) projectStore.undo(); }
+function redo(){ if (projectStoreCanRedo.value) projectStore.redo(); }
 
 const isShapePopoverVisible = ref(false);
 const shapePopoverRef = ref(null);
@@ -110,6 +140,10 @@ function selectShape(shapeType: ShapeProperties['shapeType']) {
 function updateDrawingSetting(key: string, value: any) {
   toolsStore.updateDrawingSetting(key as any, value);
 }
+
+function zoomIn(){ uiStore.setZoom((uiStore.zoom || 1) * 1.1); }
+function zoomOut(){ uiStore.setZoom((uiStore.zoom || 1) / 1.1); }
+function fit(){ uiStore.requestFit(); }
 </script>
 
 <style scoped>
@@ -255,4 +289,8 @@ function updateDrawingSetting(key: string, value: any) {
   cursor: pointer;
   padding: 0;
 }
+
+/* history controls match toolbar */
+.history-controls { display: flex; gap: 0.25rem; margin-left: 0.5rem; }
+.history-controls .tool-button[disabled] { opacity: 0.4; cursor: not-allowed; }
 </style>

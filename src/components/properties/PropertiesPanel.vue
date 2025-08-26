@@ -6,6 +6,7 @@
     </div>
 
     <div class="properties-content">
+      <LayersPanel style="margin-bottom: 1rem;" />
       <div v-if="!hasSelection" class="no-selection">
         <p>Select an element to edit its properties</p>
       </div>
@@ -53,6 +54,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useProjectStore } from '@/stores/project';
+import LayersPanel from '@/components/LayersPanel.vue';
 import TextProperties from './TextProperties.vue';
 import ImageProperties from './ImageProperties.vue';
 import ShapeProperties from './ShapeProperties.vue';

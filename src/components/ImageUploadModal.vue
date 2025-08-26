@@ -85,7 +85,7 @@ function handleDrop(event: DragEvent) {
 }
 
 .modal-content {
-  background: white;
+  background: var(--panel);
   padding: 2rem;
   border-radius: 8px;
   width: 90%;
@@ -115,7 +115,7 @@ function handleDrop(event: DragEvent) {
 }
 
 .dropzone {
-  border: 2px dashed #d1d5db;
+  border: 2px dashed var(--border-soft);
   border-radius: 6px;
   padding: 2rem;
   text-align: center;
@@ -125,12 +125,12 @@ function handleDrop(event: DragEvent) {
 
 .dropzone.dragging,
 .dropzone:hover {
-  border-color: #3b82f6;
-  background: #eff6ff;
+  border-color: var(--border);
+  background: var(--surface);
 }
 
 .dropzone-content {
-  color: #6b7280;
+  color: var(--ui-ink);
 }
 
 .dropzone-content svg {

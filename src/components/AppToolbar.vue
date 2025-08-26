@@ -20,8 +20,8 @@
         </button>
       </div>
 
-      <!-- Drawing Tools -->
-      <div v-if="toolsStore.activeTool === 'draw'" class="drawing-toolbar">
+      <!-- Drawing Tools (moved below main toolbar; reserved spot here) -->
+      <div v-if="false" class="drawing-toolbar">
         <div class="drawing-controls">
           <div class="control-group">
             <label>Size</label>
@@ -59,18 +59,7 @@
         </div>
       </div>
 
-      <!-- Zoom controls -->
-      <div class="zoom-controls">
-        <button class="tool-button" @click="zoomOut" title="Zoom Out">
-          <component :is="Minus" :size="20" />
-        </button>
-        <button class="tool-button" @click="fit" title="Fit">
-          <component :is="Maximize2" :size="20" />
-        </button>
-        <button class="tool-button" @click="zoomIn" title="Zoom In">
-          <component :is="Plus" :size="20" />
-        </button>
-      </div>
+      
       
       <div class="history-controls">
         <button class="tool-button" :disabled="!projectStoreCanUndo" @click="undo" title="Undo (⌘/Ctrl+Z)">
@@ -82,6 +71,43 @@
       </div>
     </div>
   </div>
+  <div v-if="toolsStore.activeTool === 'draw'" class="drawing-toolbar below">
+    <div class="drawing-controls">
+      <div class="control-group">
+        <label>Size</label>
+        <input 
+          type="range"
+          :value="toolsStore.drawingSettings.strokeWidth"
+          @input="updateDrawingSetting('strokeWidth', parseInt(($event.target as HTMLInputElement).value))"
+          min="1"
+          max="20"
+          class="size-slider"
+        />
+        <span class="size-value">{{ toolsStore.drawingSettings.strokeWidth }}px</span>
+      </div>
+      <div class="control-group">
+        <label>Color</label>
+        <input 
+          type="color"
+          :value="toolsStore.drawingSettings.strokeColor"
+          @input="updateDrawingSetting('strokeColor', ($event.target as HTMLInputElement).value)"
+          class="color-input"
+        />
+      </div>
+      <div class="control-group">
+        <label>Opacity</label>
+        <input 
+          type="range"
+          :value="toolsStore.drawingSettings.opacity * 100"
+          @input="updateDrawingSetting('opacity', parseInt(($event.target as HTMLInputElement).value) / 100)"
+          min="10"
+          max="100"
+          class="opacity-slider"
+        />
+        <span class="opacity-value">{{ Math.round(toolsStore.drawingSettings.opacity * 100) }}%</span>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -90,7 +116,7 @@ import { useToolsStore } from '@/stores/tools';
 import { useUIStore } from '@/stores/ui';
 import { onClickOutside } from '@vueuse/core';
 import type { ShapeProperties, ToolType } from '@/types';
-import { Square, Circle, Minus, Triangle, Plus, Maximize2 } from 'lucide-vue-next';
+import { Square, Circle, Minus, Triangle } from 'lucide-vue-next';
 import { useProjectStore } from '@/stores/project';
 
 const toolsStore = useToolsStore();
@@ -141,9 +167,7 @@ function updateDrawingSetting(key: string, value: any) {
   toolsStore.updateDrawingSetting(key as any, value);
 }
 
-function zoomIn(){ uiStore.setZoom((uiStore.zoom || 1) * 1.1); }
-function zoomOut(){ uiStore.setZoom((uiStore.zoom || 1) / 1.1); }
-function fit(){ uiStore.requestFit(); }
+// zoom controls moved into canvas floating UI
 </script>
 
 <style scoped>
@@ -151,10 +175,12 @@ function fit(){ uiStore.requestFit(); }
   display: flex;
   gap: 1rem;
   padding: 0.5rem 1rem;
-  background: white;
-  border-bottom: 1px solid #e5e7eb;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border-soft);
   align-items: center;
   position: relative;
+  border-radius: 12px;
+  margin: 0 1rem;
 }
 
 .toolbar-section {
@@ -173,13 +199,13 @@ function fit(){ uiStore.requestFit(); }
   background: transparent;
   border-radius: 6px;
   cursor: pointer;
-  color: #374151;
+  color: var(--ui-ink);
   transition: all 0.2s ease;
   position: relative;
 }
 
 .tool-button:hover {
-  background: #f3f4f6;
+  background: var(--surface);
 }
 
 .tool-button.active {
@@ -202,8 +228,8 @@ function fit(){ uiStore.requestFit(); }
   position: absolute;
   top: calc(100% + 4px);
   left: 140px; /* Adjust based on shape tool position */
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   padding: 0.5rem;
@@ -228,15 +254,19 @@ function fit(){ uiStore.requestFit(); }
 }
 
 .shape-select-button:hover {
-  background: #f3f4f6;
+  background: var(--surface);
 }
 
 .drawing-toolbar {
   margin-left: 1rem;
   padding: 0.5rem 1rem;
-  background: #f8f9fa;
-  border: 1px solid #e5e7eb;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
   border-radius: 6px;
+}
+.drawing-toolbar.below {
+  margin: 8px 1rem 0 1rem;
+  border-radius: 12px;
 }
 
 .drawing-controls {
@@ -253,14 +283,14 @@ function fit(){ uiStore.requestFit(); }
 
 .control-group label {
   font-size: 0.8rem;
-  color: #6b7280;
+  color: var(--ui-ink);
   min-width: 40px;
 }
 
 .size-slider, .opacity-slider {
   width: 80px;
   height: 4px;
-  background: #e5e7eb;
+  background: var(--border-soft);
   border-radius: 2px;
   outline: none;
   -webkit-appearance: none;
@@ -277,14 +307,14 @@ function fit(){ uiStore.requestFit(); }
 
 .size-value, .opacity-value {
   font-size: 0.8rem;
-  color: #6b7280;
+  color: var(--ui-ink);
   min-width: 30px;
 }
 
 .color-input {
   width: 32px;
   height: 32px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-soft);
   border-radius: 4px;
   cursor: pointer;
   padding: 0;

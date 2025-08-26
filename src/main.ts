@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 // vue-konva does not ship types; declare module in local d.ts if needed
 import VueKonva from 'vue-konva'
+import './style.css'
 
 const app = createApp(App)
 const pinia = createPinia()

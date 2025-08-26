@@ -3,7 +3,7 @@
     <AppToolbar />
 
     <div class="stage-wrapper" ref="stageWrapper">
-      <div class="canvas-container">
+      <div class="canvas-container resizable" ref="canvasContainer">
         <v-stage
           ref="stageRef"
           :config="stageConfig"
@@ -46,7 +46,9 @@
               />
               <v-text
                 v-else-if="node.kind === 'text'"
-                :config="node.config"
+                :config="{ ...node.config, draggable: toolsStore.activeTool === 'select' ? false : node.config.draggable }"
+                @mousedown="(e:any)=>{ /* prevent drag on click */ e.target?.draggable(false); }"
+                @mouseup="(e:any)=>{ /* restore draggable */ e.target?.draggable(toolsStore.activeTool==='select'); }"
                 @click="selectNode(node.id, $event)"
                 @dblclick="startTextEdit(node.id, $event)"
                 @dragend="onDragEnd(node.id, $event)"
@@ -79,6 +81,12 @@
           </v-layer>
         </v-stage>
       </div>
+      <div class="floating-zoom">
+        <button class="fz-btn" @click="zoomOut" title="Zoom Out">–</button>
+        <button class="fz-btn" @click="fit" title="Fit">Fit</button>
+        <button class="fz-btn" @click="zoomIn" title="Zoom In">+</button>
+      </div>
+      <div class="resize-handle" @mousedown.prevent="startResize"></div>
 
       <!-- Text editor overlay -->
       <textarea
@@ -114,10 +122,12 @@ const stageRef = ref<any>(null);
 const contentLayerRef = ref<any>(null);
 const transformerRef = ref<any>(null);
 const stageWrapper = ref<HTMLDivElement | null>(null);
+const canvasContainer = ref<HTMLDivElement | null>(null);
 
 const scaleBy = 1.05;
 
 const stageConfig = computed(() => {
+  // Stage sized to exactly the page plus a margin for handles/fit calc
   const width = pageBackgroundConfig.value.width + 100;
   const height = pageBackgroundConfig.value.height + 100;
   return { width, height, draggable: isSpacePanning.value || toolsStore.activeTool === 'pan' };
@@ -139,6 +149,8 @@ const pageBackgroundConfig = computed(() => {
     width: pagePos.width,
     height: pagePos.height,
     fill: 'white',
+    stroke: '#d1d5db',
+    strokeWidth: 2,
     listening: true // use as deselect area only
   };
 });
@@ -172,19 +184,23 @@ watch(() => projectStore.currentPage?.content, async (content) => {
         strokeWidth: p.strokeWidth,
         opacity: p.opacity,
       };
+      const isVisible = (c as any).visible !== false;
+      const isLocked = !!(c as any).locked;
       if (p.shapeType === 'rectangle') {
-        return { id: c.id, kind: 'shape', shapeType: 'rectangle', config: { ...shapeCommon, cornerRadius: p.cornerRadius || 0 } };
+        return { id: c.id, kind: 'shape', shapeType: 'rectangle', config: { ...shapeCommon, cornerRadius: p.cornerRadius || 0, visible: isVisible, draggable: toolsStore.activeTool === 'select' && !isLocked, listening: !isLocked } };
       } else if (p.shapeType === 'circle') {
         const r = Math.min(c.width, c.height) / 2;
-        return { id: c.id, kind: 'shape', shapeType: 'circle', config: { ...shapeCommon, x: common.x + r, y: common.y + r, radius: r } };
+        return { id: c.id, kind: 'shape', shapeType: 'circle', config: { ...shapeCommon, x: common.x + r, y: common.y + r, radius: r, visible: isVisible, draggable: toolsStore.activeTool === 'select' && !isLocked, listening: !isLocked } };
       } else if (p.shapeType === 'triangle') {
-        return { id: c.id, kind: 'shape', shapeType: 'triangle', config: { ...shapeCommon, x: common.x + c.width / 2, y: common.y + c.height / 2, sides: 3, radius: Math.min(c.width, c.height) / 2 }};
+        return { id: c.id, kind: 'shape', shapeType: 'triangle', config: { ...shapeCommon, x: common.x + c.width / 2, y: common.y + c.height / 2, sides: 3, radius: Math.min(c.width, c.height) / 2, visible: isVisible, draggable: toolsStore.activeTool === 'select' && !isLocked, listening: !isLocked }};
       } else {
-        return { id: c.id, kind: 'shape', shapeType: 'line', config: { ...shapeCommon, points: [0, c.height / 2, c.width, c.height / 2], stroke: p.stroke, strokeWidth: p.strokeWidth, lineCap: 'round' } };
+        return { id: c.id, kind: 'shape', shapeType: 'line', config: { ...shapeCommon, points: [0, c.height / 2, c.width, c.height / 2], stroke: p.stroke, strokeWidth: p.strokeWidth, lineCap: 'round', visible: isVisible, draggable: toolsStore.activeTool === 'select' && !isLocked, listening: !isLocked } };
       }
     }
     if (c.type === 'text') {
       const p = c.properties as TextProperties;
+      const isVisible = (c as any).visible !== false;
+      const isLocked = !!(c as any).locked;
       return {
         id: c.id,
         kind: 'text',
@@ -196,11 +212,16 @@ watch(() => projectStore.currentPage?.content, async (content) => {
           fontStyle: `${p.fontStyle} ${p.fontWeight}`.trim(),
           fill: p.color,
           align: p.textAlign,
+          visible: isVisible,
+          draggable: toolsStore.activeTool === 'select' && !isLocked,
+          listening: !isLocked
         }
       };
     }
     if (c.type === 'image') {
       const p = c.properties as ImageProperties;
+      const isVisible = (c as any).visible !== false;
+      const isLocked = !!(c as any).locked;
       const imageObj = new window.Image();
       
       if (p.assetId) {
@@ -219,6 +240,9 @@ watch(() => projectStore.currentPage?.content, async (content) => {
           ...common,
           image: imageObj,
           opacity: p.opacity,
+          visible: isVisible,
+          draggable: toolsStore.activeTool === 'select' && !isLocked,
+          listening: !isLocked
         }
       };
     }
@@ -231,11 +255,13 @@ watch(() => projectStore.currentPage?.content, async (content) => {
           pt.x + c.x + pageBackgroundConfig.value.x, 
           pt.y + c.y + pageBackgroundConfig.value.y
         ]);
+        const isVisible = (c as any).visible !== false;
+        const isLocked = !!(c as any).locked;
         return {
           id: c.id,
           kind: 'drawing',
           config: {
-            x: 0, // Points are already absolute
+            x: 0,
             y: 0,
             points,
             stroke: p.strokeColor,
@@ -244,8 +270,9 @@ watch(() => projectStore.currentPage?.content, async (content) => {
             lineCap: p.lineCap || 'round',
             lineJoin: p.lineJoin || 'round',
             tension: p.smoothing ? 0.5 : 0,
-            draggable: toolsStore.activeTool === 'select',
-            listening: true, // Ensure it can receive events
+            draggable: toolsStore.activeTool === 'select' && !isLocked,
+            listening: !isLocked,
+            visible: isVisible,
             hitStrokeWidth: Math.max(p.strokeWidth, 10) // Make thin lines easier to select
           }
         };
@@ -370,26 +397,65 @@ function onWheel(e: any) {
   stage.batchDraw();
 }
 
+function getAvailableSize(): { w: number; h: number } {
+  const container = canvasContainer.value || stageWrapper.value;
+  const w = container?.clientWidth || stageRef.value?.getNode?.()?.width() || 0;
+  const h = container?.clientHeight || stageRef.value?.getNode?.()?.height() || 0;
+  return { w, h };
+}
+
+function centerOnPage(stage: Konva.Stage, scale: number): void {
+  const bg = pageBackgroundConfig.value;
+  const { w, h } = getAvailableSize();
+  const pageCenterX = (bg.x + bg.width / 2) * scale;
+  const pageCenterY = (bg.y + bg.height / 2) * scale;
+  const posX = w / 2 - pageCenterX;
+  const posY = h / 2 - pageCenterY;
+  stage.position({ x: posX, y: posY });
+  stage.batchDraw();
+}
+
 // Watch for fit requests from UI store
 watch(() => uiStore.shouldFit, (flag) => {
   if (!flag) return;
   const stage = stageRef.value?.getNode?.();
   if (!stage) { uiStore.shouldFit = false as any; return; }
   const bg = pageBackgroundConfig.value;
-  const container = stage.container().parentElement as HTMLElement;
-  const availW = container?.clientWidth || stage.width();
-  const availH = container?.clientHeight || stage.height();
+  const { w, h } = getAvailableSize();
   const margin = 80;
-  const scale = Math.min((availW - margin) / (bg.width + 100), (availH - margin) / (bg.height + 100));
+  const scale = Math.min((w - margin) / bg.width, (h - margin) / bg.height);
   stage.scale({ x: scale, y: scale });
-  const centerX = (availW - (bg.width + 100) * scale) / 2;
-  const centerY = (availH - (bg.height + 100) * scale) / 2;
-  stage.position({ x: centerX, y: centerY });
-  stage.batchDraw();
+  centerOnPage(stage, scale);
   uiStore.shouldFit = false as any;
 });
 
+function zoomIn() {
+  const stage = stageRef.value?.getNode?.();
+  if (!stage) return;
+  const z = stage.scaleX() || 1;
+  const newScale = z * 1.1;
+  stage.scale({ x: newScale, y: newScale });
+  centerStage(stage, newScale);
+}
+
+function zoomOut() {
+  const stage = stageRef.value?.getNode?.();
+  if (!stage) return;
+  const z = stage.scaleX() || 1;
+  const newScale = z / 1.1;
+  stage.scale({ x: newScale, y: newScale });
+  centerStage(stage, newScale);
+}
+
+function fit() { uiStore.requestFit(); }
+
+function centerStage(stage: Konva.Stage, newScale: number) {
+  centerOnPage(stage, newScale);
+}
+
 onMounted(() => {
+  // Reduce accidental drags when simply clicking nodes
+  try { (Konva as any).dragDistance(6); } catch {}
   const tr = transformerRef.value?.getNode?.();
   const layer = contentLayerRef.value?.getNode?.();
   if (!tr || !layer) return;
@@ -434,6 +500,7 @@ function onStageMouseDown(e: any) {
   if (toolsStore.activeTool === 'draw') {
     const pos = stage.getPointerPosition();
     if (!pos) return;
+    const sp = toStagePoint(stage, pos);
 
     // Create a new line for drawing
     const layer = contentLayerRef.value?.getNode?.();
@@ -447,7 +514,7 @@ function onStageMouseDown(e: any) {
       globalCompositeOperation: 'source-over',
       lineCap: settings.lineCap,
       lineJoin: settings.lineJoin,
-      points: [pos.x, pos.y],
+      points: [sp.x, sp.y],
       tension: settings.smoothing ? 0.5 : 0, // Add smoothing
     });
     
@@ -483,6 +550,7 @@ function onStageMouseMove() {
     if (!stage) return;
     const pos = stage.getPointerPosition();
     if (!pos) return;
+    const sp = toStagePoint(stage, pos);
 
     // Add point smoothing for better drawing experience
     const currentPoints = lastLine.points();
@@ -490,9 +558,9 @@ function onStageMouseMove() {
     const lastY = currentPoints[currentPoints.length - 1];
     
     // Only add point if it's far enough from the last point (reduces jitter)
-    const distance = Math.sqrt(Math.pow(pos.x - lastX, 2) + Math.pow(pos.y - lastY, 2));
+    const distance = Math.sqrt(Math.pow(sp.x - lastX, 2) + Math.pow(sp.y - lastY, 2));
     if (distance > 2) {
-      const newPoints = currentPoints.concat([pos.x, pos.y]);
+      const newPoints = currentPoints.concat([sp.x, sp.y]);
       lastLine.points(newPoints);
     }
     return;
@@ -523,18 +591,14 @@ function onStageMouseUp() {
       const minY = Math.min(...yCoords);
       const maxX = Math.max(...xCoords);
       const maxY = Math.max(...yCoords);
-
-      // Convert stage coordinates to page-relative coordinates
-      const stagePos = stageRef.value?.getNode?.()?.position() || { x: 0, y: 0 };
-      const scale = stageRef.value?.getNode?.()?.scaleX() || 1;
       
       const settings = toolsStore.drawingSettings;
       const drawingContent = {
         type: 'drawing' as const,
-        x: (minX - stagePos.x) / scale - pageBackgroundConfig.value.x,
-        y: (minY - stagePos.y) / scale - pageBackgroundConfig.value.y,
-        width: (maxX - minX) / scale,
-        height: (maxY - minY) / scale,
+        x: minX - pageBackgroundConfig.value.x,
+        y: minY - pageBackgroundConfig.value.y,
+        width: (maxX - minX),
+        height: (maxY - minY),
         rotation: 0,
         zIndex: Date.now(),
         properties: {
@@ -542,8 +606,8 @@ function onStageMouseUp() {
             points: points.reduce((acc, val, i) => {
               if (i % 2 === 0) {
                 acc.push({ 
-                  x: (val - stagePos.x) / scale - pageBackgroundConfig.value.x - ((minX - stagePos.x) / scale - pageBackgroundConfig.value.x), 
-                  y: (points[i + 1] - stagePos.y) / scale - pageBackgroundConfig.value.y - ((minY - stagePos.y) / scale - pageBackgroundConfig.value.y)
+                  x: val - minX,
+                  y: points[i + 1] - minY
                 });
               }
               return acc;
@@ -585,7 +649,7 @@ function onStageMouseUp() {
     if (node.className === 'Transformer' || !node.id || typeof node.id !== 'function') return;
     
     const id = node.id();
-    if (!id || id.startsWith('page-bg')) return; // Skip page background
+    if (!id || id === 'page-background' || id.startsWith('page-bg')) return; // Skip page background
     
     // Get bounding box for intersection test
     let nodeRect;
@@ -648,7 +712,38 @@ onMounted(() => {
   };
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
+  // Auto-fit on mount for larger canvas
+  nextTick(() => { uiStore.requestFit(); });
 });
+
+let isResizing = false;
+let startPos = { x: 0, y: 0 };
+let startSize = { w: 0, h: 0 };
+function startResize(e: MouseEvent) {
+  if (!canvasContainer.value) return;
+  isResizing = true;
+  startPos = { x: e.clientX, y: e.clientY };
+  const rect = canvasContainer.value.getBoundingClientRect();
+  startSize = { w: rect.width, h: rect.height };
+  window.addEventListener('mousemove', onResizeMove);
+  window.addEventListener('mouseup', endResize, { once: true });
+}
+function onResizeMove(e: MouseEvent) {
+  if (!isResizing || !canvasContainer.value) return;
+  const dx = e.clientX - startPos.x;
+  const dy = e.clientY - startPos.y;
+  canvasContainer.value.style.width = `${Math.max(320, startSize.w + dx)}px`;
+  canvasContainer.value.style.height = `${Math.max(240, startSize.h + dy)}px`;
+  // recentre page without changing zoom while dragging
+  const stage = stageRef.value?.getNode?.();
+  if (stage) centerStage(stage, stage.scaleX() || 1);
+}
+function endResize() {
+  isResizing = false;
+  window.removeEventListener('mousemove', onResizeMove);
+  const stage = stageRef.value?.getNode?.();
+  if (stage) centerStage(stage, stage.scaleX() || 1);
+}
 
 const textAreaRef = ref<HTMLTextAreaElement | null>(null);
 const editingText = ref<{ visible: boolean; id: string | null; value: string; style: any }>({ visible: false, id: null, value: '', style: {} });
@@ -750,9 +845,27 @@ function onStageClick(e: any) {
   // Allow clicks on stage OR page background to place new items
   const clickedStage = e.target === stage;
   const clickedPageBg = typeof e.target?.id === 'function' && e.target.id() === 'page-background';
-  if (!clickedStage && !clickedPageBg) return;
+  if (toolsStore.activeTool !== 'zoom' && !clickedStage && !clickedPageBg) return;
 
   if (toolsStore.activeTool === 'draw') return;
+
+  // Click-to-zoom tool
+  if (toolsStore.activeTool === 'zoom') {
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+    const oldScale = stage.scaleX();
+    const sp = toStagePoint(stage, pointer);
+    const factor = e.evt && (e.evt.altKey || e.evt.metaKey) ? 1/scaleBy : scaleBy;
+    const newScale = oldScale * factor;
+    stage.scale({ x: newScale, y: newScale });
+    const newPos = {
+      x: pointer.x - sp.x * newScale,
+      y: pointer.y - sp.y * newScale,
+    };
+    stage.position(newPos);
+    stage.batchDraw();
+    return;
+  }
   
   const pos = toStagePoint(stage, stage.getPointerPosition()!);
   const relativePos = {
@@ -809,19 +922,49 @@ function addShape(x: number, y: number) {
   display: flex; 
   align-items: center; 
   justify-content: center; 
-  background: #f1f5f9; 
+  background: var(--surface); 
   width: 100%;
   height: 100%;
   overflow: auto;
+  position: relative;
 }
 .canvas-container {
-  background: white;
+  background: var(--panel);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), inset 0 0 0 1.5px var(--border);
+  border: 2px dashed var(--border-soft);
+  position: relative;
+}
+.canvas-container.resizable { width: min(90%, 900px); height: min(70vh, 600px); }
+.resize-handle {
+  position: absolute; right: 2px; bottom: 2px; width: 14px; height: 14px;
+  border-right: 2px solid var(--border); border-bottom: 2px solid var(--border);
+  cursor: nwse-resize; opacity: .6;
 }
 .text-editor {
   font-family: inherit;
   border-radius: 4px;
 }
+.floating-zoom {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  display: flex;
+  gap: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+.fz-btn {
+  appearance: none;
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
+  color: var(--ui-ink);
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.fz-btn:hover { background: var(--panel); }
 </style>

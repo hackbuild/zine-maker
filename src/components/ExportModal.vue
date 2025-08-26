@@ -134,7 +134,7 @@ function downloadPdf() {
   z-index: 1000;
 }
 .modal-content {
-  background: white;
+  background: var(--panel);
   padding: 2rem;
   border-radius: 8px;
   width: 90%;
@@ -184,14 +184,14 @@ function downloadPdf() {
 }
 
 .tab-button.active {
-  color: #3b82f6;
-  border-bottom-color: #3b82f6;
+  color: var(--ink);
+  border-bottom-color: var(--border);
 }
 
 .preview-container {
   flex: 1;
-  background: #f1f5f9;
-  border: 1px solid #e5e7eb;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
   border-radius: 6px;
   display: flex;
   align-items: center;

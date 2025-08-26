@@ -18,6 +18,11 @@ export const useProjectStore = defineStore('project', () => {
   let batchName: string | undefined;
   let batchEntries: HistoryEntry[] = [];
 
+  function getPageById(pageId: string | undefined): ZinePage | undefined {
+    if (!pageId) return undefined;
+    return currentProject.value?.pages.find(p => p.id === pageId);
+  }
+
   function pushHistory(entry: HistoryEntry) {
     if (isBatching.value) {
       batchEntries.push(entry);
@@ -157,16 +162,17 @@ export const useProjectStore = defineStore('project', () => {
     isModified.value = true;
 
     const snapshot = JSON.parse(JSON.stringify(newContent)) as ZineContent;
+    const pageId = currentPage.value.id;
     pushHistory({
       name: 'addContent',
       undo: () => {
-        const page = currentPage.value;
+        const page = getPageById(pageId);
         if (!page) return;
         const idx = page.content.findIndex(c => c.id === snapshot.id);
         if (idx !== -1) page.content.splice(idx, 1);
       },
       redo: () => {
-        const page = currentPage.value;
+        const page = getPageById(pageId);
         if (!page) return;
         if (!page.content.find(c => c.id === snapshot.id)) {
           page.content.push(JSON.parse(JSON.stringify(snapshot)));
@@ -189,10 +195,11 @@ export const useProjectStore = defineStore('project', () => {
       isModified.value = true;
 
       const after = JSON.parse(JSON.stringify(next)) as ZineContent;
+      const pageId = currentPage.value.id;
       pushHistory({
         name: 'updateContent',
         undo: () => {
-          const page = currentPage.value; if (!page) return;
+          const page = getPageById(pageId); if (!page) return;
           const idx = page.content.findIndex(c => c.id === prev.id);
           if (idx !== -1) {
             page.content.splice(idx, 1, JSON.parse(JSON.stringify(prev)));
@@ -200,7 +207,7 @@ export const useProjectStore = defineStore('project', () => {
           }
         },
         redo: () => {
-          const page = currentPage.value; if (!page) return;
+          const page = getPageById(pageId); if (!page) return;
           const idx = page.content.findIndex(c => c.id === after.id);
           if (idx !== -1) {
             page.content.splice(idx, 1, JSON.parse(JSON.stringify(after)));
@@ -223,14 +230,15 @@ export const useProjectStore = defineStore('project', () => {
       isModified.value = true;
 
       const indexForReinsert = contentIndex;
+      const pageId = currentPage.value.id;
       pushHistory({
         name: 'deleteContent',
         undo: () => {
-          const page = currentPage.value; if (!page) return;
+          const page = getPageById(pageId); if (!page) return;
           page.content.splice(indexForReinsert, 0, JSON.parse(JSON.stringify(removedSnapshot)));
         },
         redo: () => {
-          const page = currentPage.value; if (!page) return;
+          const page = getPageById(pageId); if (!page) return;
           const idx = page.content.findIndex(c => c.id === removedSnapshot.id);
           if (idx !== -1) page.content.splice(idx, 1);
         }
@@ -250,17 +258,18 @@ export const useProjectStore = defineStore('project', () => {
     });
     isModified.value = true;
 
+    const pageId = currentPage.value.id;
     pushHistory({
       name: 'setVisibility',
       undo: () => {
-        const page = currentPage.value; if (!page) return;
+        const page = getPageById(pageId); if (!page) return;
         before.forEach(({ id, visible }) => {
           const c = page.content.find(i => i.id === id);
           if (c) c.visible = visible;
         });
       },
       redo: () => {
-        const page = currentPage.value; if (!page) return;
+        const page = getPageById(pageId); if (!page) return;
         ids.forEach(id => {
           const c = page.content.find(i => i.id === id);
           if (c) c.visible = visible;
@@ -281,17 +290,18 @@ export const useProjectStore = defineStore('project', () => {
     });
     isModified.value = true;
 
+    const pageId = currentPage.value.id;
     pushHistory({
       name: 'setLocked',
       undo: () => {
-        const page = currentPage.value; if (!page) return;
+        const page = getPageById(pageId); if (!page) return;
         before.forEach(({ id, locked }) => {
           const c = page.content.find(i => i.id === id);
           if (c) c.locked = locked;
         });
       },
       redo: () => {
-        const page = currentPage.value; if (!page) return;
+        const page = getPageById(pageId); if (!page) return;
         ids.forEach(id => {
           const c = page.content.find(i => i.id === id);
           if (c) c.locked = locked;
@@ -315,10 +325,11 @@ export const useProjectStore = defineStore('project', () => {
     currentPage.value.content = newContent;
     isModified.value = true;
 
+    const pageId = currentPage.value.id;
     pushHistory({
       name: 'reorder',
       undo: () => {
-        const page = currentPage.value; if (!page) return;
+        const page = getPageById(pageId); if (!page) return;
         const rebuilt: ZineContent[] = [];
         prevOrder.forEach((id, idx) => {
           const item = page.content.find(c => c.id === id);
@@ -330,7 +341,7 @@ export const useProjectStore = defineStore('project', () => {
         page.content = rebuilt;
       },
       redo: () => {
-        const page = currentPage.value; if (!page) return;
+        const page = getPageById(pageId); if (!page) return;
         const rebuilt: ZineContent[] = [];
         order.forEach((id, idx) => {
           const item = page.content.find(c => c.id === id);
@@ -357,18 +368,20 @@ export const useProjectStore = defineStore('project', () => {
     });
     isModified.value = true;
 
+    const pageId = currentPage.value.id;
+    const idsSnapshot = before.map(b => b.id);
     pushHistory({
       name: 'group',
       undo: () => {
-        const page = currentPage.value; if (!page) return;
+        const page = getPageById(pageId); if (!page) return;
         before.forEach(({ id, groupId }) => {
           const item = page.content.find(c => c.id === id);
           if (item) item.groupId = groupId;
         });
       },
       redo: () => {
-        const page = currentPage.value; if (!page) return;
-        selectedContentIds.value.forEach(id => {
+        const page = getPageById(pageId); if (!page) return;
+        idsSnapshot.forEach(id => {
           const item = page.content.find(c => c.id === id);
           if (item) item.groupId = groupId;
         });
@@ -389,10 +402,12 @@ export const useProjectStore = defineStore('project', () => {
     });
     isModified.value = true;
 
+    const pageId = currentPage.value.id;
+    const idsSnapshot = before.map(b => b.id);
     pushHistory({
       name: 'ungroup',
       undo: () => {
-        const page = currentPage.value; if (!page) return;
+        const page = getPageById(pageId); if (!page) return;
         before.forEach(({ id, groupId }) => {
           const item = page.content.find(c => c.id === id);
           if (item) {
@@ -401,8 +416,8 @@ export const useProjectStore = defineStore('project', () => {
         });
       },
       redo: () => {
-        const page = currentPage.value; if (!page) return;
-        selectedContentIds.value.forEach(id => {
+        const page = getPageById(pageId); if (!page) return;
+        idsSnapshot.forEach(id => {
           const item = page.content.find(c => c.id === id);
           if (item) delete item.groupId;
         });
@@ -434,18 +449,19 @@ export const useProjectStore = defineStore('project', () => {
     }
     isModified.value = true;
 
+    const pageId = currentPage.value.id;
     pushHistory({
       name: 'updateBackground',
       undo: () => {
-        if (!currentPage.value) return;
-        currentPage.value.backgroundColor = prevColor;
-        currentPage.value.backgroundImage = prevImage;
+        const page = getPageById(pageId); if (!page) return;
+        page.backgroundColor = prevColor;
+        page.backgroundImage = prevImage;
       },
       redo: () => {
-        if (!currentPage.value) return;
-        currentPage.value.backgroundColor = backgroundColor;
+        const page = getPageById(pageId); if (!page) return;
+        page.backgroundColor = backgroundColor;
         if (backgroundImage !== undefined) {
-          currentPage.value.backgroundImage = backgroundImage;
+          page.backgroundImage = backgroundImage;
         }
       }
     });

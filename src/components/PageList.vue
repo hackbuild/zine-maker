@@ -1,8 +1,9 @@
 <template>
-  <div class="page-list">
+  <div class="page-list" :class="{ collapsed: uiStore.pageListCollapsed }">
     <div class="page-list-header">
       <h3>Pages</h3>
       <span class="page-count">{{ projectStore.pageCount }} pages</span>
+      <button class="collapse-button" @click="uiStore.togglePageListCollapsed()">{{ uiStore.pageListCollapsed ? '▸' : '▾' }}</button>
     </div>
 
     <div class="pages-grid">
@@ -16,12 +17,10 @@
         <div class="page-preview">
           <div class="page-number">{{ page.pageNumber }}</div>
           <div class="page-content-preview">
-            <div 
-              v-for="content in page.content.slice(0, 3)" 
-              :key="content.id"
-              class="content-preview"
-              :class="content.type"
-            ></div>
+            <!-- Simple preview: draw a mini white page and shallow content bars -->
+            <div class="mini-page">
+              <div class="mini-content" v-for="(c, i) in page.content.slice(0,6)" :key="i" :style="{ width: (20 + (i%3)*20) + '%'}"></div>
+            </div>
           </div>
         </div>
         <div class="page-info">
@@ -290,9 +289,12 @@ async function createKonvaNode(content: ZineContent): Promise<Konva.Node | null>
   flex-direction: column;
   height: 100%;
   padding: 0.75rem;
-  background: white;
-  border-right: 1px solid #e5e7eb;
+  background: var(--panel);
+  border-right: 1px solid var(--border-soft);
 }
+.page-list.collapsed { width: 40px; }
+.page-list.collapsed .pages-grid, .page-list.collapsed .page-actions, .page-list.collapsed .page-count { display: none; }
+.page-list.collapsed .page-list-header h3 { display: none; }
 
 .page-list-header {
   display: flex;
@@ -300,20 +302,21 @@ async function createKonvaNode(content: ZineContent): Promise<Konva.Node | null>
   align-items: center;
   margin-bottom: 1rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .page-list-header h3 {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
-  color: #111827;
+  color: var(--ui-ink);
 }
 
 .page-count {
-  color: #6b7280;
+  color: var(--ui-ink);
   font-size: 0.8rem;
 }
+.collapse-button { border: none; background: transparent; color: var(--ui-ink); cursor: pointer; }
 
 .pages-grid {
   flex: 1;
@@ -342,8 +345,9 @@ async function createKonvaNode(content: ZineContent): Promise<Konva.Node | null>
 }
 
 .page-item.active {
-  border-color: #3b82f6;
-  background: #eff6ff;
+  border-color: #000;
+  box-shadow: 2px 2px 0 #000;
+  background: #e7ffe7;
 }
 
 .page-preview {
@@ -375,24 +379,8 @@ async function createKonvaNode(content: ZineContent): Promise<Konva.Node | null>
   flex-wrap: wrap;
   gap: 1px;
 }
-
-.content-preview {
-  width: 6px;
-  height: 4px;
-  border-radius: 1px;
-}
-
-.content-preview.text {
-  background: #007bff;
-}
-
-.content-preview.image {
-  background: #28a745;
-}
-
-.content-preview.shape {
-  background: #ffc107;
-}
+.mini-page { background: #fff; border: 1px solid var(--border-soft); width: 100%; height: 100%; position: relative; }
+.mini-content { height: 3px; background: var(--border); margin: 2px; }
 
 .page-info {
   flex: 1;
@@ -423,16 +411,16 @@ async function createKonvaNode(content: ZineContent): Promise<Konva.Node | null>
 .export-button {
   width: 100%;
   padding: 0.6rem;
-  background: #10b981;
-  color: white;
-  border: none;
+  background: var(--accent-red);
+  color: #fff;
+  border: 1.5px solid var(--border);
   border-radius: 6px;
-  font-weight: 500;
+  font-weight: 700;
   cursor: pointer;
-  transition: background 0.2s ease;
+  box-shadow: 2px 2px 0 #000;
+  transform: translate(0,0);
+  transition: transform .04s, box-shadow .04s;
 }
 
-.export-button:hover {
-  background: #059669;
-}
+.export-button:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 #000; }
 </style>

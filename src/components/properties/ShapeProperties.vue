@@ -134,9 +134,11 @@ function updateOpacity(event: Event) {
   margin: 0 0 0.75rem 0;
   font-size: 0.9rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--ui-ink);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  border-bottom: 2px dashed var(--border-soft);
+  padding-bottom: 6px;
 }
 
 .property-group {

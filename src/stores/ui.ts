@@ -14,6 +14,8 @@ export const useUIStore = defineStore('ui', () => {
   const zoom = ref(1);
   const canvasOffset = ref({ x: 0, y: 0 });
   const shouldFit = ref(false);
+  const pageListCollapsed = ref(false);
+  const propertiesCollapsed = ref(false);
 
   function hideTemplateSelector(): void {
     showTemplateSelector.value = false;
@@ -43,6 +45,13 @@ export const useUIStore = defineStore('ui', () => {
     shouldFit.value = true;
   }
 
+  function togglePageListCollapsed(): void {
+    pageListCollapsed.value = !pageListCollapsed.value;
+  }
+  function togglePropertiesCollapsed(): void {
+    propertiesCollapsed.value = !propertiesCollapsed.value;
+  }
+
   return {
     showTemplateSelector,
     showPageList,
@@ -56,12 +65,16 @@ export const useUIStore = defineStore('ui', () => {
     zoom,
     canvasOffset,
     shouldFit,
+    pageListCollapsed,
+    propertiesCollapsed,
     hideTemplateSelector,
     showTemplateSelectorModal,
     togglePageList,
     toggleProperties,
     setZoom,
     setCanvasOffset,
-    requestFit
+    requestFit,
+    togglePageListCollapsed,
+    togglePropertiesCollapsed
   };
 });

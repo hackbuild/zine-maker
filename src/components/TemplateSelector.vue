@@ -1,9 +1,10 @@
 <template>
   <div class="template-selector-overlay">
     <div class="template-selector">
+      <button class="close-button" @click="uiStore.hideTemplateSelector()">×</button>
       <div class="template-header">
         <h2>Choose a Zine Template</h2>
-        <p>Select a template to get started with your zine project</p>
+        <p>Select a template and name your project.</p>
       </div>
 
       <div class="main-content">
@@ -17,45 +18,37 @@
           </ul>
         </div>
 
-        <div class="template-grid">
-          <div 
-            v-for="template in templatesStore.templates" 
-            :key="template.id"
-            class="template-card"
-            :class="{ selected: selectedTemplate?.id === template.id }"
-            @click="selectTemplate(template)"
-          >
-            <div class="template-preview">
-              <div class="template-format">{{ template.format.replace('-', ' ').toUpperCase() }}</div>
-              <div class="template-pages">{{ template.pageCount }} pages</div>
-            </div>
-            <div class="template-info">
-              <h3>{{ template.name }}</h3>
-              <p>{{ template.description }}</p>
-              <div class="template-details">
-                <span class="detail">{{ template.pageSize.toUpperCase() }}</span>
-                <span class="detail">{{ template.orientation }}</span>
+        <div class="templates-column">
+          <label for="projectName" class="field-label">Project name</label>
+          <input id="projectName" class="project-name-input" v-model="projectName" placeholder="e.g. My Zine" />
+
+          <div class="template-grid">
+            <div 
+              v-for="template in templatesStore.templates" 
+              :key="template.id"
+              class="template-card"
+              :class="{ selected: selectedTemplate?.id === template.id }"
+              @click="selectTemplate(template)"
+            >
+              <div class="template-preview">
+                <div class="template-format">{{ template.format.replace('-', ' ').toUpperCase() }}</div>
+                <div class="template-pages">{{ template.pageCount }} pages</div>
               </div>
+              <div class="template-info">
+                <h3>{{ template.name }}</h3>
+                <p>{{ template.description }}</p>
+                <div class="template-details">
+                  <span class="detail">{{ template.pageSize.toUpperCase() }}</span>
+                  <span class="detail">{{ template.orientation }}</span>
+                </div>
+              </div>
+              <button v-if="selectedTemplate?.id === template.id" :disabled="!projectName.trim()" class="create-inline" @click.stop="createProject">Create</button>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="template-actions">
-        <input 
-          v-model="projectName" 
-          type="text" 
-          placeholder="Enter project name"
-          class="project-name-input"
-        />
-        <button 
-          @click="createProject" 
-          :disabled="!selectedTemplate || !projectName.trim()"
-          class="create-button"
-        >
-          Create Zine
-        </button>
-      </div>
+      
     </div>
   </div>
 </template>
@@ -121,7 +114,7 @@ function formatDate(date: Date): string {
 }
 
 .template-selector {
-  background: white;
+  background: var(--panel);
   border-radius: 8px;
   padding: 2rem;
   max-width: 900px;
@@ -129,6 +122,7 @@ function formatDate(date: Date): string {
   overflow-y: auto;
   width: 90%;
 }
+.close-button { position: absolute; right: 16px; top: 16px; background: transparent; border: none; font-size: 24px; cursor: pointer; color: var(--ui-ink); }
 
 .template-header {
   text-align: center;
@@ -153,7 +147,7 @@ function formatDate(date: Date): string {
 .recent-projects {
   width: 250px;
   flex-shrink: 0;
-  border-right: 1px solid #e5e7eb;
+  border-right: 1px solid var(--border-soft);
   padding-right: 2rem;
 }
 
@@ -201,22 +195,19 @@ function formatDate(date: Date): string {
 }
 
 .template-card {
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
   padding: 1rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform .06s, box-shadow .06s;
+  background: var(--panel);
+  box-shadow: 2px 2px 0 #000;
+  position: relative;
 }
 
-.template-card:hover {
-  border-color: #007bff;
-  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
-}
-
-.template-card.selected {
-  border-color: #007bff;
-  background: #f8f9ff;
-}
+.template-card:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 #000; }
+.template-card.selected { outline: 3px solid #00ff7b; }
+.create-inline { position: absolute; right: 10px; bottom: 10px; padding: 6px 10px; background: var(--accent-green); color: #000; border: 1.5px solid var(--border); border-radius: 6px; box-shadow: 2px 2px 0 #000; cursor: pointer; }
 
 .template-preview {
   display: flex;
@@ -224,7 +215,7 @@ function formatDate(date: Date): string {
   align-items: center;
   margin-bottom: 1rem;
   padding: 0.5rem;
-  background: #f5f5f5;
+  background: var(--surface);
   border-radius: 4px;
 }
 
@@ -273,30 +264,34 @@ function formatDate(date: Date): string {
 
 .project-name-input {
   padding: 0.75rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-soft);
   border-radius: 4px;
   font-size: 1rem;
   flex: 1;
   max-width: 300px;
 }
 
+.project-name-input.top { max-width: none; width: 100%; margin-bottom: 1rem; }
+
 .create-button {
   padding: 0.75rem 2rem;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 4px;
+  background: var(--accent-green);
+  color: #000;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
   font-size: 1rem;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: transform .04s, box-shadow .04s;
+  box-shadow: 2px 2px 0 #000;
 }
 
-.create-button:hover:not(:disabled) {
-  background: #0056b3;
-}
+.create-button:hover:not(:disabled) { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 #000; }
 
 .create-button:disabled {
   background: #ccc;
   cursor: not-allowed;
 }
+
+.templates-column { flex: 1; display: flex; flex-direction: column; gap: 1rem; }
+.field-label { font-size: 0.85rem; color: var(--ui-ink); }
 </style>

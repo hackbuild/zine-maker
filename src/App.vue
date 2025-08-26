@@ -24,22 +24,13 @@
         </div>
         
         <div class="header-right">
-          <button @click="toggleTheme" class="header-button" :title="`Switch to ${theme==='dark'?'Light':'Dark'} Theme`">
+          <button @click="toggleTheme" class="header-button icon-only" :title="`Switch to ${theme==='dark'?'Light':'Dark'} Theme`">
             <Sun v-if="theme==='dark'" :size="16" />
             <Moon v-else :size="16" />
-            <span>{{ theme==='dark' ? 'Light' : 'Dark' }} Theme</span>
           </button>
-          <button @click="uiStore.showTemplateSelectorModal()" class="header-button">
+          <button @click="uiStore.showTemplateSelectorModal()" class="header-button header-button--red" title="New Project">
             <FilePlus :size="16" />
             <span>New Project</span>
-          </button>
-          <button @click="uiStore.togglePageList()" class="header-button">
-            <PanelLeft :size="16" />
-            <span>{{ uiStore.showPageList ? 'Hide' : 'Show' }} Pages</span>
-          </button>
-          <button @click="uiStore.toggleProperties()" class="header-button">
-            <PanelRight :size="16" />
-            <span>{{ uiStore.showProperties ? 'Hide' : 'Show' }} Properties</span>
           </button>
         </div>
       </header>
@@ -238,8 +229,8 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1.5rem;
-  background: white;
-  border-bottom: 1px solid #e5e7eb;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border-soft);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   height: 64px;
   flex-shrink: 0;
@@ -265,12 +256,12 @@ body {
 
 .project-name {
   font-weight: 500;
-  color: #333;
+  color: var(--ui-ink);
 }
 
 .template-info {
   font-size: 0.9rem;
-  color: #666;
+  color: var(--ui-ink);
 }
 
 .header-right {
@@ -283,18 +274,30 @@ body {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  border: 1px solid #d1d5db;
-  background: white;
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 0.9rem;
-  color: #374151;
+  color: var(--ui-ink);
+}
+.header-button.icon-only { padding: 0.5rem; }
+.header-button--red { 
+  background: var(--accent-red); 
+  color: #fff; 
+  border: 1.5px solid var(--border); 
+  box-shadow: 2px 2px 0 #000;
+  transform: translate(0,0);
+}
+.header-button--red:hover { 
+  transform: translate(-1px,-1px); 
+  box-shadow: 3px 3px 0 #000; 
 }
 
 .header-button:hover {
-  background: #f0f0f0;
-  border-color: #999;
+  background: var(--panel);
+  border-color: var(--border);
 }
 
 .app-main {
@@ -310,7 +313,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: #f1f5f9;
+  background: var(--surface);
 }
 
 .sidebar {

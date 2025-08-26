@@ -46,9 +46,7 @@
               />
               <v-text
                 v-else-if="node.kind === 'text'"
-                :config="{ ...node.config, draggable: toolsStore.activeTool === 'select' ? false : node.config.draggable }"
-                @mousedown="(e:any)=>{ /* prevent drag on click */ e.target?.draggable(false); }"
-                @mouseup="(e:any)=>{ /* restore draggable */ e.target?.draggable(toolsStore.activeTool==='select'); }"
+                :config="{ ...node.config, draggable: toolsStore.activeTool === 'select' }"
                 @click="selectNode(node.id, $event)"
                 @dblclick="startTextEdit(node.id, $event)"
                 @dragend="onDragEnd(node.id, $event)"

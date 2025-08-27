@@ -76,6 +76,13 @@ export async function renameProject(id: string, newName: string): Promise<void> 
   await tx.done;
 }
 
+export async function deleteAllProjects(): Promise<void> {
+  const db = await getDb();
+  const tx = db.transaction(PROJECTS_STORE_NAME, 'readwrite');
+  await tx.store.clear();
+  await tx.done;
+}
+
 export async function saveLastOpenProjectId(id: string): Promise<void> {
   localStorage.setItem(LAST_PROJECT_ID_KEY, id);
 }

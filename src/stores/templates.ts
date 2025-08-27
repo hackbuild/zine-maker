@@ -63,33 +63,33 @@ export const useTemplatesStore = defineStore('templates', () => {
       pageSize: 'letter',
       orientation: 'landscape',
       pageCount: 16,
-      description: '16-page one-sheet cut-and-fold (accordion snake) on letter size',
-      foldInstructions: 'Print double-sided. Cut along indicated lines and fold accordion-style following the snake order.',
+      description: '16-page one-sheet accordion (single-sided) with three horizontal cuts.',
+      foldInstructions: 'Print single-sided. Cut along the three horizontal lines, then accordion fold following the snake order.',
       printLayout: {
-        sheetWidth: 792,
-        sheetHeight: 612,
+        sheetWidth: 612,
+        sheetHeight: 792,
         pagePositions: [
-          // 4x4 grid; rotate portrait tiles into landscape slots
-          // Top row (was upside down) -> rotate 270
-          { pageNumber: 16, x:   0, y:   0, width: 198, height: 153, rotation: 270, isFlipped: false },
-          { pageNumber: 14, x: 198, y:   0, width: 198, height: 153, rotation: 270, isFlipped: false },
-          { pageNumber: 13, x: 396, y:   0, width: 198, height: 153, rotation: 270, isFlipped: false },
-          { pageNumber: 12, x: 594, y:   0, width: 198, height: 153, rotation: 270, isFlipped: false },
-          // Row 3 (upright) -> rotate 90
-          { pageNumber: 8,  x:   0, y: 153, width: 198, height: 153, rotation: 90, isFlipped: false },
-          { pageNumber: 9,  x: 198, y: 153, width: 198, height: 153, rotation: 90, isFlipped: false },
-          { pageNumber: 10, x: 396, y: 153, width: 198, height: 153, rotation: 90, isFlipped: false },
-          { pageNumber: 11, x: 594, y: 153, width: 198, height: 153, rotation: 90, isFlipped: false },
-          // Row 2 (upside down) -> rotate 270
-          { pageNumber: 7,  x:   0, y: 306, width: 198, height: 153, rotation: 270, isFlipped: false },
-          { pageNumber: 6,  x: 198, y: 306, width: 198, height: 153, rotation: 270, isFlipped: false },
-          { pageNumber: 5,  x: 396, y: 306, width: 198, height: 153, rotation: 270, isFlipped: false },
-          { pageNumber: 4,  x: 594, y: 306, width: 198, height: 153, rotation: 270, isFlipped: false },
-          // Bottom row (upright) -> rotate 90
-          { pageNumber: 1,  x:   0, y: 459, width: 198, height: 153, rotation: 90, isFlipped: false },
-          { pageNumber: 2,  x: 198, y: 459, width: 198, height: 153, rotation: 90, isFlipped: false },
-          { pageNumber: 3,  x: 396, y: 459, width: 198, height: 153, rotation: 90, isFlipped: false },
-          { pageNumber: 15, x: 594, y: 459, width: 198, height: 153, rotation: 90, isFlipped: false }
+          // 4x4 grid, portrait tiles 153×198. Rows: 4 3 2 1 / 5 6 7 8 / 12 11 10 9 / 13 14 15 16
+          // Row 1 (y=0)
+          { pageNumber: 4,  x:   0, y:   0, width: 153, height: 198, rotation: 180, isFlipped: false, side: 'front' },
+          { pageNumber: 3,  x: 153, y:   0, width: 153, height: 198, rotation: 180, isFlipped: false, side: 'front' },
+          { pageNumber: 2,  x: 306, y:   0, width: 153, height: 198, rotation: 180, isFlipped: false, side: 'front' },
+          { pageNumber: 1,  x: 459, y:   0, width: 153, height: 198, rotation: 180, isFlipped: false, side: 'front' },
+          // Row 2 (y=198)
+          { pageNumber: 5,  x:   0, y: 198, width: 153, height: 198, rotation: 0, isFlipped: false, side: 'front' },
+          { pageNumber: 6,  x: 153, y: 198, width: 153, height: 198, rotation: 0, isFlipped: false, side: 'front' },
+          { pageNumber: 7,  x: 306, y: 198, width: 153, height: 198, rotation: 0, isFlipped: false, side: 'front' },
+          { pageNumber: 8,  x: 459, y: 198, width: 153, height: 198, rotation: 0, isFlipped: false, side: 'front' },
+          // Row 3 (y=396)
+          { pageNumber: 12, x:   0, y: 396, width: 153, height: 198, rotation: 180, isFlipped: false, side: 'front' },
+          { pageNumber: 11, x: 153, y: 396, width: 153, height: 198, rotation: 180, isFlipped: false, side: 'front' },
+          { pageNumber: 10, x: 306, y: 396, width: 153, height: 198, rotation: 180, isFlipped: false, side: 'front' },
+          { pageNumber: 9,  x: 459, y: 396, width: 153, height: 198, rotation: 180, isFlipped: false, side: 'front' },
+          // Row 4 (y=594)
+          { pageNumber: 13, x:   0, y: 594, width: 153, height: 198, rotation: 0, isFlipped: false, side: 'front' },
+          { pageNumber: 14, x: 153, y: 594, width: 153, height: 198, rotation: 0, isFlipped: false, side: 'front' },
+          { pageNumber: 15, x: 306, y: 594, width: 153, height: 198, rotation: 0, isFlipped: false, side: 'front' },
+          { pageNumber: 16, x: 459, y: 594, width: 153, height: 198, rotation: 0, isFlipped: false, side: 'front' }
         ]
       },
       pageCanvas: { width: 153, height: 198 }

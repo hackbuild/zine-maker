@@ -543,6 +543,14 @@ export const useProjectStore = defineStore('project', () => {
     return 'export-data';
   }
 
+  function renamePage(pageId: string, newTitle: string): void {
+    if (!currentProject.value) return;
+    const page = currentProject.value.pages.find(p => p.id === pageId);
+    if (!page) return;
+    page.title = newTitle;
+    isModified.value = true;
+  }
+
   return {
     currentProject,
     currentPageIndex,
@@ -578,5 +586,7 @@ export const useProjectStore = defineStore('project', () => {
     getContentById,
     duplicateContent,
     exportProject
+    ,
+    renamePage
   };
 });

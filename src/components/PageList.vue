@@ -17,14 +17,14 @@
         <div class="page-preview">
           <div class="page-number">{{ page.pageNumber }}</div>
           <div class="page-content-preview">
-            <!-- Simple preview: draw a mini white page and shallow content bars -->
             <div class="mini-page">
-              <div class="mini-content" v-for="(_, i) in page.content.slice(0,6)" :key="i" :style="{ width: (20 + (i%3)*20) + '%'}"></div>
+              <div class="mini-content" v-for="(_, i) in page.content.slice(0,4)" :key="i" :style="{ width: (24 + (i%3)*18) + '%'}"></div>
             </div>
           </div>
         </div>
         <div class="page-info">
-          <div class="page-title">{{ pageTitle(page) }}</div>
+          <div class="page-title" @dblclick.stop="startEdit(page)" v-if="editingId !== page.id">{{ pageTitle(page) }}</div>
+          <input v-else class="title-input" :value="editValue" @input="onEditInput($event)" @keydown.enter.prevent="commitEdit(page)" @keydown.esc.prevent="cancelEdit" @blur="commitEdit(page)" />
           <div class="page-stats">{{ page.content.length }} items</div>
         </div>
       </div>
@@ -42,6 +42,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
 import { useProjectStore } from '@/stores/project';
 import { useUIStore } from '@/stores/ui';
 import { useAssetStore } from '@/stores/assetStore';
@@ -51,6 +52,9 @@ const projectStore = useProjectStore();
 const uiStore = useUIStore();
 const assetStore = useAssetStore();
 
+const editingId = ref<string | null>(null);
+const editValue = ref('');
+
 function pageTitle(page: any): string {
   const tpl = projectStore.currentProject?.template;
   if (!tpl) return page.title;
@@ -58,6 +62,23 @@ function pageTitle(page: any): string {
   if (page.pageNumber === tpl.pageCount) return 'Back Cover';
   return page.title;
 }
+
+function startEdit(page: any): void {
+  editingId.value = page.id;
+  editValue.value = page.title;
+}
+function onEditInput(e: Event): void {
+  editValue.value = (e.target as HTMLInputElement).value;
+}
+function commitEdit(page: any): void {
+  if (editingId.value !== page.id) { editingId.value = null; return; }
+  const val = editValue.value.trim();
+  if (val && val !== page.title) {
+    projectStore.renamePage(page.id, val);
+  }
+  editingId.value = null;
+}
+function cancelEdit(): void { editingId.value = null; }
 
 async function exportZine(): Promise<void> {
   if (!projectStore.currentProject) {
@@ -189,6 +210,7 @@ async function exportZine(): Promise<void> {
 }
 .mini-page { background: #fff; border: 1px solid var(--border-soft); width: 100%; height: 100%; position: relative; }
 .mini-content { height: 3px; background: var(--border); margin: 2px; }
+.mini-icon { position: absolute; right: 2px; bottom: 2px; width: 16px; height: 16px; opacity: 0.9; }
 
 .page-info {
   flex: 1;
@@ -204,6 +226,7 @@ async function exportZine(): Promise<void> {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.title-input { font-size: 0.9rem; padding: 2px 4px; border: 1px solid var(--border-soft); border-radius: 4px; width: 100%; }
 
 .page-stats {
   font-size: 0.75rem;

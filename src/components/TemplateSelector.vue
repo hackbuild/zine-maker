@@ -69,7 +69,7 @@ const projectStore = useProjectStore();
 const uiStore = useUIStore();
 
 const selectedTemplate = ref<ZineTemplate | null>(null);
-const projectName = ref('My Zine');
+const projectName = ref('');
 const recentProjects = ref<ZineProject[]>([]);
 
 let onKey: ((e: KeyboardEvent) => void) | null = null;
@@ -80,6 +80,8 @@ onMounted(async () => {
   recentProjects.value.sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime());
   onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') uiStore.hideTemplateSelector(); };
   window.addEventListener('keydown', onKey);
+  // Auto-generate a project name when the modal opens
+  projectName.value = generateName();
 });
 
 onUnmounted(() => { if (onKey) window.removeEventListener('keydown', onKey); });

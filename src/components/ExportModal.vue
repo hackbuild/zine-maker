@@ -65,10 +65,8 @@
       <div class="print-instructions">
         <h4>Printing Instructions:</h4>
         <ul>
-          <li>Print at 100% scale (no scaling)</li>
-          <li>Use standard letter-size paper (8.5" × 11")</li>
-          <li>For quarter-fold: Fold in half horizontally, then vertically</li>
-          <li>For half-fold: Fold in half along the center line</li>
+          <li>Print at 100% scale (no scaling). Use standard letter-size paper (8.5" × 11")</li>
+          <li>For quarter-fold: Fold in half horizontally, then vertically. For half-fold: Fold in half along the center line.</li>
           <li>Cut along fold lines if needed to separate pages</li>
         </ul>
       </div>
@@ -211,7 +209,7 @@ function downloadPdf() {
   align-items: center;
   justify-content: center;
   padding: 0.75rem;
-  overflow: auto;
+  /* overflow: scroll; */
   height: 60vh; /* fixed viewport area so image can scale to fit */
 }
 .png-wrapper {
@@ -224,8 +222,8 @@ function downloadPdf() {
 }
 .png-image {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 30%;
+  height: 30%;
   object-fit: contain;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
@@ -241,8 +239,8 @@ function downloadPdf() {
   letter-spacing: .02em;
 }
 .pdf-preview {
-  width: 100%;
-  height: 100%;
+  width: 75%;
+  height: 75%;
   min-height: 400px;
   border: none;
   border-radius: 4px;
@@ -318,14 +316,14 @@ function downloadPdf() {
 
 .print-instructions h4 {
   margin: 0 0 0.5rem 0;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   color: #374151;
 }
 
 .print-instructions ul {
   margin: 0;
   padding-left: 1.2rem;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   color: #6b7280;
   line-height: 1.4;
 }

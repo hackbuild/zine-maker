@@ -19,8 +19,8 @@ export const useUIStore = defineStore('ui', () => {
   const pageListCollapsed = ref(false);
   const propertiesCollapsed = ref(false);
   const showPageNumbers = ref(true);
-  const showFoldMarks = ref(false);
-  const showCutMarks = ref(false);
+  const showFoldMarks = ref(true);
+  const showCutMarks = ref(true);
   const showStorageNotice = ref(false);
 
   function hideTemplateSelector(): void {

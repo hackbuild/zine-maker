@@ -39,12 +39,12 @@ export async function exportZineForTemplate(
 
       const nodePromises: Promise<void>[] = [];
       for (const pagePos of positions) {
-        const page = project.pages.find(p => p.pageNumber === pagePos.pageNumber);
+        const page = pagePos.pageNumber === 0 ? { pageNumber: 0, backgroundColor: '#ffffff', content: [] as any[] } as any : project.pages.find(p => p.pageNumber === pagePos.pageNumber);
         if (!page) continue;
         const group = new Konva.Group({ x: pagePos.x, y: pagePos.y, clip: { x: 0, y: 0, width: pagePos.width, height: pagePos.height } });
         group.add(new Konva.Rect({ x: 0, y: 0, width: pagePos.width, height: pagePos.height, fill: page.backgroundColor || 'white' }));
 
-        if (options.showPageNumbers) {
+        if (options.showPageNumbers && page.pageNumber) {
           group.add(new Konva.Text({ text: String(page.pageNumber), x: pagePos.width - 20, y: pagePos.height - 18, fontSize: 12, fill: '#111827', align: 'right' }));
         }
 
@@ -79,6 +79,10 @@ export async function exportZineForTemplate(
         } else if (project.template.format === 'half-fold' || project.template.format === 'booklet') {
           // Center fold line
           layer.add(new Konva.Line({ points: [width / 2, 0, width / 2, height], stroke: '#9ca3af', dash: [6, 4], listening: false }));
+        } else if (project.template.format === 'accordion') {
+          // Vertical folds at quarter widths to create the meander columns (4 columns)
+          const xs = [width / 4, width / 2, (width * 3) / 4];
+          xs.forEach(x => layer.add(new Konva.Line({ points: [x, 0, x, height], stroke: '#9ca3af', dash: [6, 4], listening: false })));
         }
       }
       if (options.showCutMarks) {
@@ -88,6 +92,33 @@ export async function exportZineForTemplate(
           const x1 = width / 4;
           const x2 = (width * 3) / 4;
           layer.add(new Konva.Line({ points: [x1, y, x2, y], stroke: '#111827', dash: [10, 8], listening: false }));
+        } else if (project.template.format === 'accordion') {
+          // Meander cuts: three alternating slits that do NOT span full width.
+          // Top (y = H/4): cut from left edge to 3/4 width
+          // Middle (y = H/2): cut from right edge to 1/4 width
+          // Bottom (y = 3H/4): cut from left edge to 3/4 width
+          const yTop = height / 4;
+          const yMid = height / 2;
+          const yBot = (height * 3) / 4;
+          const xQ1 = width / 4;
+          const xQ3 = (width * 3) / 4;
+          const heavy = 4;
+          const notch = 12;
+
+          // Top slit: 0 -> 3/4W
+          layer.add(new Konva.Line({ points: [0, yTop, xQ3, yTop], stroke: '#111827', strokeWidth: heavy, listening: false }));
+          layer.add(new Konva.Line({ points: [0, yTop - notch, 0, yTop + notch], stroke: '#111827', strokeWidth: 3, listening: false }));
+          layer.add(new Konva.Line({ points: [xQ3, yTop - notch, xQ3, yTop + notch], stroke: '#111827', strokeWidth: 3, listening: false }));
+
+          // Middle slit: W -> 1/4W (draw from right to left)
+          layer.add(new Konva.Line({ points: [width, yMid, xQ1, yMid], stroke: '#111827', strokeWidth: heavy, listening: false }));
+          layer.add(new Konva.Line({ points: [width, yMid - notch, width, yMid + notch], stroke: '#111827', strokeWidth: 3, listening: false }));
+          layer.add(new Konva.Line({ points: [xQ1, yMid - notch, xQ1, yMid + notch], stroke: '#111827', strokeWidth: 3, listening: false }));
+
+          // Bottom slit: 0 -> 3/4W
+          layer.add(new Konva.Line({ points: [0, yBot, xQ3, yBot], stroke: '#111827', strokeWidth: heavy, listening: false }));
+          layer.add(new Konva.Line({ points: [0, yBot - notch, 0, yBot + notch], stroke: '#111827', strokeWidth: 3, listening: false }));
+          layer.add(new Konva.Line({ points: [xQ3, yBot - notch, xQ3, yBot + notch], stroke: '#111827', strokeWidth: 3, listening: false }));
         } else {
           // Corner crop marks
           const m = 18, len = 24;
@@ -139,6 +170,10 @@ export async function exportZineForTemplate(
       images.push(front, back);
     } else if (template.format === 'quarter-fold') {
       // Single sheet, single side (slit zine is one-sided)
+      const front = await renderSide('front', template.printLayout.pagePositions);
+      images.push(front);
+    } else if (template.format === 'accordion') {
+      // Single-sided 16-page accordion (slit-and-fold): render one image
       const front = await renderSide('front', template.printLayout.pagePositions);
       images.push(front);
     } else if (template.format === 'flipbook') {

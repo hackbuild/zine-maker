@@ -10,7 +10,26 @@
           <button class="btn" @click="exportAll">Export All Projects</button>
           <button class="btn" @click="importInput?.click()">Import Projects</button>
           <input ref="importInput" type="file" accept="application/json" @change="importAll" style="display:none" />
+          <button class="btn" @click="toggleSamples">Browse Sample Zines</button>
+          <button class="btn btn-danger" @click="openDeleteAll">Delete All</button>
         </div>
+
+        <div v-if="showSamples" class="samples-grid">
+          <div v-for="s in samples" :key="s.id" class="sample-card">
+            <div class="thumb icon-thumb">
+              <EncryptedLock v-if="s.id==='security-half-fold'" :size="72" />
+              <PrintBlocks v-else-if="s.id==='oss-mini'" :size="72" accent="#5CFF6A" />
+            </div>
+            <div class="sample-info">
+              <div class="sample-name">{{ s.name }}</div>
+              <div class="sample-desc">{{ s.description }}</div>
+            </div>
+            <div class="sample-actions">
+              <button class="btn" @click="loadSample(s.id)">Create from Sample</button>
+            </div>
+          </div>
+        </div>
+
         <ul class="projects-list">
           <li v-for="project in projects" :key="project.id" class="project-item">
             <div class="info">
@@ -25,6 +44,18 @@
           </li>
         </ul>
         <div v-if="!projects.length" class="empty">No projects yet.</div>
+
+        <div v-if="showConfirm" class="confirm-overlay" @click.self="showConfirm=false">
+          <div class="confirm-modal">
+            <h3>Delete all projects</h3>
+            <p>Type "delete" to confirm. This action cannot be undone.</p>
+            <input class="confirm-input" v-model="confirmText" placeholder="delete" />
+            <div class="confirm-actions">
+              <button class="btn" @click="showConfirm=false">Cancel</button>
+              <button class="btn btn-danger" :disabled="confirmText !== 'delete'" @click="confirmDeleteAll">Confirm</button>
+            </div>
+          </div>
+        </div>
       </section>
     </div>
   </div>
@@ -34,8 +65,9 @@
 import { onMounted, onUnmounted, ref } from 'vue';
 import { useProjectStore } from '@/stores/project';
 import { useUIStore } from '@/stores/ui';
-import { getAllProjects, loadProject, deleteProject, renameProject } from '@/utils/persistence';
+import { getAllProjects, loadProject, deleteProject, renameProject, saveProject } from '@/utils/persistence';
 import type { ZineProject } from '@/types';
+import { EncryptedLock, PrintBlocks } from '@/icons';
 
 const emit = defineEmits<{ (e: 'close'): void }>();
 const uiStore = useUIStore();
@@ -44,6 +76,10 @@ const projectStore = useProjectStore();
 const projects = ref<ZineProject[]>([]);
 let onKey: ((e: KeyboardEvent) => void) | null = null;
 const importInput = ref<HTMLInputElement | null>(null);
+const showSamples = ref(false);
+const samples = ref<{ id: string; name: string; description: string; thumbnail: string }[]>([]);
+const showConfirm = ref(false);
+const confirmText = ref('');
 
 function close() { emit('close'); }
 
@@ -111,8 +147,31 @@ async function importAll(e: Event) {
   }
 }
 
+function toggleSamples() { showSamples.value = !showSamples.value; }
+
+async function loadSample(id: string) {
+  const { createSample, getSamples } = await import('@/utils/sampleZines');
+  const project = createSample(id);
+  if (!project) return;
+  await saveProject(project);
+  await refresh();
+  // Immediately open it
+  await openProject(project.id);
+}
+
+function openDeleteAll() { showConfirm.value = true; confirmText.value = ''; }
+async function confirmDeleteAll() {
+  if (confirmText.value !== 'delete') return;
+  const { deleteAllProjects } = await import('@/utils/persistence');
+  await deleteAllProjects();
+  await refresh();
+  showConfirm.value = false;
+}
+
 onMounted(() => {
   refresh();
+  // lazy load sample list
+  import('@/utils/sampleZines').then(({ getSamples }) => { samples.value = getSamples(); });
   onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
   window.addEventListener('keydown', onKey);
 });
@@ -133,6 +192,14 @@ onUnmounted(() => { if (onKey) window.removeEventListener('keydown', onKey); });
 .close-button--red { background: var(--accent-red); color: #fff; width: 28px; height: 28px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--border); box-shadow: 2px 2px 0 #000; }
 
 .backup-bar { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+.samples-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; margin-bottom: 0.75rem; }
+.sample-card { background: var(--surface); border: 1px solid var(--border-soft); border-radius: 8px; padding: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.sample-card .thumb { position: relative; width: 100%; height: 120px; background: #fff; border: 1px dashed var(--border-soft); border-radius: 6px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.icon-thumb :deep(svg) { filter: drop-shadow(1px 1px 0 #000); }
+.sample-info { display: flex; flex-direction: column; gap: 0.2rem; }
+.sample-name { font-weight: 600; }
+.sample-desc { font-size: 0.85rem; opacity: 0.8; }
+.sample-actions { margin-top: 0.25rem; display: flex; justify-content: flex-end; }
 .projects-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
 .project-item { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background: var(--surface); border: 1px solid var(--border-soft); border-radius: 8px; }
 .project-item .info .name { font-weight: 600; color: var(--ui-ink); }
@@ -141,4 +208,10 @@ onUnmounted(() => { if (onKey) window.removeEventListener('keydown', onKey); });
 .btn { padding: 0.4rem 0.7rem; border: 1px solid var(--border); background: var(--panel); border-radius: 6px; cursor: pointer; }
 .btn-danger { background: var(--accent-red); color: #fff; border: 1.5px solid var(--border); box-shadow: 2px 2px 0 #000; }
 .empty { color: var(--ui-ink); opacity: 0.75; padding: 0.5rem; }
+
+.confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1200; }
+.confirm-modal { background: var(--panel); border: 1.5px solid var(--border); box-shadow: 4px 4px 0 #000; border-radius: 10px; width: 420px; max-width: 95vw; padding: 1rem; }
+.confirm-modal h3 { margin: 0 0 0.25rem 0; }
+.confirm-input { width: 100%; padding: 0.5rem 0.6rem; border: 1px solid var(--border-soft); border-radius: 6px; background: var(--surface); color: var(--ui-ink); margin-top: 0.35rem; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.75rem; }
 </style>

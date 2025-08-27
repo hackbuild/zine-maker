@@ -4,12 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "engines": {
-    "node": ">=18 <=20"
+    "node": "20.x",
+    "npm": "10.x"
   },
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:do": "npm ci --include=dev && npm run build"
   },
   "dependencies": {
     "@vueuse/core": "^13.7.0",

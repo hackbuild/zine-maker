@@ -20,7 +20,10 @@
 
         <div class="templates-column">
           <label for="projectName" class="field-label">Project name</label>
-          <input id="projectName" class="project-name-input" v-model="projectName" placeholder="e.g. My Zine" />
+          <div class="name-row">
+            <input id="projectName" class="project-name-input" v-model="projectName" placeholder="e.g. My Zine" />
+            <button class="btn" type="button" @click="projectName = generateName()" title="Generate name">Random</button>
+          </div>
 
           <div class="template-grid">
             <div 
@@ -91,6 +94,15 @@ function createProject(): void {
     projectStore.createNewProject(projectName.value.trim(), selectedTemplate.value);
     uiStore.hideTemplateSelector();
   }
+}
+
+function generateName(): string {
+  const left = ['Zesty','Noisy','Quiet','Feral','Lucky','Neon','Paper','Stencil','Grainy','Raster'];
+  const right = ['Zine','Pamphlet','Fold','Run','Press','Print','Booklet','Sheet','Stack','Saddle'];
+  const a = left[Math.floor(Math.random()*left.length)];
+  const b = right[Math.floor(Math.random()*right.length)];
+  const n = Math.floor(Math.random()*900+100);
+  return `${a} ${b} ${n}`;
 }
 
 function openProject(project: ZineProject) {
@@ -270,12 +282,15 @@ function formatDate(date: Date): string {
 }
 
 .project-name-input {
-  padding: 0.75rem;
+  height: 40px;
+  line-height: 40px;
+  padding: 0 12px;
   border: 1px solid var(--border-soft);
   border-radius: 4px;
   font-size: 1rem;
   flex: 1;
   max-width: 300px;
+  box-sizing: border-box;
 }
 
 .project-name-input.top { max-width: none; width: 100%; margin-bottom: 1rem; }
@@ -301,4 +316,6 @@ function formatDate(date: Date): string {
 
 .templates-column { flex: 1; display: flex; flex-direction: column; gap: 1rem; }
 .field-label { font-size: 0.85rem; color: var(--ui-ink); }
+.name-row { display: flex; gap: .5rem; align-items: center; }
+.btn { padding: .5rem .75rem; border: 1px solid var(--border); background: var(--panel); border-radius: 6px; cursor: pointer; }
 </style>

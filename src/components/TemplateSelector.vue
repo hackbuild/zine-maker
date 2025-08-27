@@ -1,9 +1,9 @@
 <template>
-  <div class="template-selector-overlay">
-    <div class="template-selector">
-      <button class="close-button" @click="uiStore.hideTemplateSelector()">×</button>
+  <div class="template-selector-overlay" @keydown.esc.prevent="uiStore.hideTemplateSelector()" tabindex="-1">
+    <div class="template-selector" role="dialog" aria-labelledby="templateSelectorTitle">
+      <button class="close-button close-button--red" @click="uiStore.hideTemplateSelector()" aria-label="Close">×</button>
       <div class="template-header">
-        <h2>Choose a Zine Template</h2>
+        <h2 id="templateSelectorTitle">Choose a Zine Template</h2>
         <p>Select a template and name your project.</p>
       </div>
 
@@ -54,7 +54,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useTemplatesStore } from '@/stores/templates';
 import { useProjectStore } from '@/stores/project';
 import { useUIStore } from '@/stores/ui';
@@ -73,6 +73,10 @@ onMounted(async () => {
   recentProjects.value = await getAllProjects();
   // Sort by most recently modified
   recentProjects.value.sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime());
+  const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') uiStore.hideTemplateSelector(); };
+  window.addEventListener('keydown', onKey);
+  // cleanup
+  onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
 });
 
 function selectTemplate(template: ZineTemplate): void {
@@ -123,6 +127,7 @@ function formatDate(date: Date): string {
   width: 90%;
 }
 .close-button { position: absolute; right: 16px; top: 16px; background: transparent; border: none; font-size: 24px; cursor: pointer; color: var(--ui-ink); }
+.close-button--red { background: var(--accent-red); color: #fff; width: 28px; height: 28px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--border); box-shadow: 2px 2px 0 #000; }
 
 .template-header {
   text-align: center;

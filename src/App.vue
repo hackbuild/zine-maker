@@ -11,6 +11,11 @@
       @close="uiStore.showExportModal = false"
     />
 
+    <ProjectsModal 
+      v-if="uiStore.showProjectsModal"
+      @close="uiStore.closeProjectsModal()"
+    />
+
     <TemplateSelector v-if="uiStore.showTemplateSelector" />
     
     <div v-else class="zine-maker">
@@ -31,6 +36,10 @@
           <button @click="uiStore.showTemplateSelectorModal()" class="header-button header-button--red" title="New Project">
             <FilePlus :size="16" />
             <span>New Project</span>
+          </button>
+          <button @click="uiStore.openProjectsModal()" class="header-button" title="Projects">
+            <FolderOpen :size="16" />
+            <span>Projects</span>
           </button>
         </div>
       </header>
@@ -55,7 +64,9 @@ import ExportModal from '@/components/ExportModal.vue';
 import { useProjectStore } from '@/stores/project';
 import { useUIStore } from '@/stores/ui';
 import { useToolsStore } from '@/stores/tools';
-import { FilePlus, PanelLeft, PanelRight, Sun, Moon } from 'lucide-vue-next';
+import { FilePlus, Sun, Moon, FolderOpen } from 'lucide-vue-next';
+// @ts-ignore - Vue SFC type shim might be missing in this project setup
+import ProjectsModal from '@/components/ProjectsModal.vue';
 import { useAssetStore } from '@/stores/assetStore';
 import { getLastOpenProjectId, loadProject } from '@/utils/persistence';
 
@@ -293,6 +304,18 @@ body {
 .header-button--red:hover { 
   transform: translate(-1px,-1px); 
   box-shadow: 3px 3px 0 #000; 
+}
+
+.header-button--green {
+  background: var(--accent-green);
+  color: #000;
+  border: 1.5px solid var(--border);
+  box-shadow: 2px 2px 0 #000;
+  transform: translate(0,0);
+}
+.header-button--green:hover {
+  transform: translate(-1px,-1px);
+  box-shadow: 3px 3px 0 #000;
 }
 
 .header-button:hover {

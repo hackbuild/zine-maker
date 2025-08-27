@@ -16,6 +16,7 @@ export interface ZineTemplate {
   description: string;
   foldInstructions: string;
   printLayout: PrintLayout;
+  pageCanvas?: { width: number; height: number };
 }
 
 export interface PrintLayout {
@@ -32,6 +33,7 @@ export interface PagePosition {
   height: number;
   rotation: number;
   isFlipped: boolean;
+  side?: 'front' | 'back';
 }
 
 export interface ZinePage {

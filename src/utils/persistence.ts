@@ -32,7 +32,7 @@ export async function saveProject(project: ZineProject): Promise<void> {
   const tx = db.transaction(PROJECTS_STORE_NAME, 'readwrite');
 
   // Serialize to plain JSON to avoid DataCloneError from proxies or complex instances
-  const plain = JSON.parse(JSON.stringify(project, (key, value) => {
+  const plain = JSON.parse(JSON.stringify(project, (_key, value) => {
     if (value instanceof Date) return value.toISOString();
     return value;
   }));
@@ -56,6 +56,24 @@ export async function loadProject(id: string): Promise<ZineProject | undefined> 
 export async function getAllProjects(): Promise<ZineProject[]> {
   const db = await getDb();
   return db.getAll(PROJECTS_STORE_NAME);
+}
+
+export async function deleteProject(id: string): Promise<void> {
+  const db = await getDb();
+  const tx = db.transaction(PROJECTS_STORE_NAME, 'readwrite');
+  await tx.store.delete(id);
+  await tx.done;
+}
+
+export async function renameProject(id: string, newName: string): Promise<void> {
+  const db = await getDb();
+  const tx = db.transaction(PROJECTS_STORE_NAME, 'readwrite');
+  const project: any = await tx.store.get(id);
+  if (!project) return;
+  project.name = newName;
+  project.modifiedAt = new Date().toISOString();
+  await tx.store.put(project);
+  await tx.done;
 }
 
 export async function saveLastOpenProjectId(id: string): Promise<void> {

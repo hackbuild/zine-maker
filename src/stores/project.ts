@@ -101,10 +101,14 @@ export const useProjectStore = defineStore('project', () => {
     
     // Create pages based on template
     for (let i = 0; i < template.pageCount; i++) {
+      const pageNumber = i + 1;
+      const title = pageNumber === 1
+        ? 'Front Cover'
+        : (pageNumber === template.pageCount ? 'Back Cover' : `Page ${pageNumber}`);
       pages.push({
-        id: `page-${i + 1}`,
-        pageNumber: i + 1,
-        title: `Page ${i + 1}`,
+        id: `page-${pageNumber}`,
+        pageNumber,
+        title,
         content: [],
         backgroundColor: '#ffffff'
       });

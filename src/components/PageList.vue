@@ -19,21 +19,24 @@
           <div class="page-content-preview">
             <!-- Simple preview: draw a mini white page and shallow content bars -->
             <div class="mini-page">
-              <div class="mini-content" v-for="(c, i) in page.content.slice(0,6)" :key="i" :style="{ width: (20 + (i%3)*20) + '%'}"></div>
+              <div class="mini-content" v-for="(_, i) in page.content.slice(0,6)" :key="i" :style="{ width: (20 + (i%3)*20) + '%'}"></div>
             </div>
           </div>
         </div>
         <div class="page-info">
-          <div class="page-title">{{ page.title }}</div>
+          <div class="page-title">{{ pageTitle(page) }}</div>
           <div class="page-stats">{{ page.content.length }} items</div>
         </div>
       </div>
     </div>
 
     <div class="page-actions">
-      <button @click="exportZine" class="export-button">
-        Export Zine for Printing
-      </button>
+      <div class="export-options">
+        <label><input type="checkbox" v-model="uiStore.showPageNumbers" /> Page numbers</label>
+        <label><input type="checkbox" v-model="uiStore.showFoldMarks" /> Fold marks</label>
+        <label><input type="checkbox" v-model="uiStore.showCutMarks" /> Cut marks</label>
+      </div>
+      <button @click="exportZine" class="export-button export-button--green">Export Zine for Printing</button>
     </div>
   </div>
 </template>
@@ -42,245 +45,50 @@
 import { useProjectStore } from '@/stores/project';
 import { useUIStore } from '@/stores/ui';
 import { useAssetStore } from '@/stores/assetStore';
-import Konva from 'konva';
-import jsPDF from 'jspdf';
-import type { ZineContent, ShapeProperties, TextProperties, ImageProperties } from '@/types';
+import { exportZineForTemplate } from '@/composables/useZineExport';
 
 const projectStore = useProjectStore();
 const uiStore = useUIStore();
 const assetStore = useAssetStore();
+
+function pageTitle(page: any): string {
+  const tpl = projectStore.currentProject?.template;
+  if (!tpl) return page.title;
+  if (page.pageNumber === 1) return 'Front Cover';
+  if (page.pageNumber === tpl.pageCount) return 'Back Cover';
+  return page.title;
+}
 
 async function exportZine(): Promise<void> {
   if (!projectStore.currentProject) {
     console.error('No current project to export.');
     return;
   }
-
-  const template = projectStore.currentProject.template;
-  
-  // Create a truly off-screen container for rendering
-  const tempContainer = document.createElement('div');
-  tempContainer.style.position = 'absolute';
-  tempContainer.style.left = '-9999px';
-  tempContainer.style.top = '-9999px';
-  tempContainer.style.width = `${template.printLayout.sheetWidth}px`;
-  tempContainer.style.height = `${template.printLayout.sheetHeight}px`;
-  document.body.appendChild(tempContainer);
-
   try {
-    const stage = new Konva.Stage({
-      container: tempContainer,
-      width: template.printLayout.sheetWidth,
-      height: template.printLayout.sheetHeight,
-    });
-    
-    const layer = new Konva.Layer();
-    stage.add(layer);
-    
-    // White background
-    layer.add(new Konva.Rect({ x: 0, y: 0, width: stage.width(), height: stage.height(), fill: 'white' }));
-
-    const nodePromises: Promise<void>[] = [];
-
-    // Add all pages to the layout
-    for (const pagePos of template.printLayout.pagePositions) {
-      const page = projectStore.currentProject.pages.find(p => p.pageNumber === pagePos.pageNumber);
-      if (!page) continue;
-
-      const pageGroup = new Konva.Group({
-        x: pagePos.x,
-        y: pagePos.y,
-        clip: { x: 0, y: 0, width: pagePos.width, height: pagePos.height },
-      });
-
-      // Page background
-      pageGroup.add(new Konva.Rect({ 
-        x: 0, y: 0,
-        width: pagePos.width, 
-        height: pagePos.height, 
-        fill: page.backgroundColor || 'white'
-      }));
-      
-      // Add content sorted by z-index (bottom to top)
-      const sorted = [...page.content].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
-      for (const content of sorted) {
-        const promise = createKonvaNode(content).then(node => {
-          if (node) {
-            pageGroup.add(node as Konva.Shape);
-          }
-        });
-        nodePromises.push(promise);
+    const { images, pdfData, width, height } = await exportZineForTemplate(
+      projectStore.currentProject,
+      (id) => assetStore.getAsset(id),
+      {
+        showPageNumbers: uiStore.showPageNumbers,
+        showFoldMarks: uiStore.showFoldMarks,
+        showCutMarks: uiStore.showCutMarks,
+        pixelRatio: 2,
       }
-
-      // Apply transformations
-      if (pagePos.rotation !== 0) {
-        pageGroup.rotation(pagePos.rotation);
-        pageGroup.offsetX(pagePos.width / 2);
-        pageGroup.offsetY(pagePos.height / 2);
-        pageGroup.x(pagePos.x + pagePos.width / 2);
-        pageGroup.y(pagePos.y + pagePos.height / 2);
-      }
-      if (pagePos.isFlipped) {
-        pageGroup.scaleX(-1);
-        pageGroup.offsetX(pagePos.width);
-      }
-
-      layer.add(pageGroup);
-    }
-
-    // Add labels for two-sided printing if needed
-    if (template.format === 'half-fold') {
-      layer.add(new Konva.Text({
-        x: 10, y: 10, text: 'FRONT SIDE - PRINT THIS SIDE FIRST', fontSize: 14, fill: 'black'
-      }));
-      layer.add(new Konva.Text({
-        x: 10, y: 622, text: 'BACK SIDE - PRINT ON REVERSE', fontSize: 14, fill: 'black'
-      }));
-    }
-
-    // Wait for ALL nodes (especially images) to be created and loaded
-    await Promise.all(nodePromises);
-
-    // Render and export
-    await new Promise<void>(resolve => {
-      layer.draw();
-      stage.draw();
-      requestAnimationFrame(() => {
-        setTimeout(resolve, 100); // Small extra delay for safety
-      });
-    });
-
-    const dataURL = stage.toDataURL({
-      x: 0,
-      y: 0,
-      width: stage.width(),
-      height: stage.height(),
-      pixelRatio: 2
-    });
-    const pdf = await generatePDF(stage, template);
-    
-    // Show export modal
-    // Record image intrinsic size so modal can scale precisely
-    uiStore.exportImageWidth = stage.width() * 2; // pixelRatio
-    uiStore.exportImageHeight = stage.height() * 2;
-    uiStore.exportImageData = dataURL;
-    uiStore.exportPdfData = pdf;
+    );
+    uiStore.exportImageWidth = width;
+    uiStore.exportImageHeight = height;
+    uiStore.exportImages = images;
+    uiStore.exportImageData = images[0];
+    uiStore.exportPdfData = pdfData;
     uiStore.showExportModal = true;
 
   } catch (error) {
     console.error('Export failed:', error);
     alert('Export failed. Please check the console for details.');
-  } finally {
-    // Cleanup container and stage regardless of success or failure
-    if (tempContainer) {
-      document.body.removeChild(tempContainer);
-    }
   }
 }
 
-async function generatePDF(stage: Konva.Stage, template: any): Promise<string> {
-  // Convert points to inches (72 DPI)
-  const widthInches = template.printLayout.sheetWidth / 72;
-  const heightInches = template.printLayout.sheetHeight / 72;
-  
-  const pdf = new jsPDF({
-    orientation: widthInches > heightInches ? 'landscape' : 'portrait',
-    unit: 'in',
-    format: [widthInches, heightInches]
-  });
-
-  const dataURL = stage.toDataURL({ pixelRatio: 2 });
-  pdf.addImage(dataURL, 'PNG', 0, 0, widthInches, heightInches);
-  
-  return pdf.output('datauristring');
-}
-
-async function createKonvaNode(content: ZineContent): Promise<Konva.Node | null> {
-  const commonConfig = {
-    x: content.x,
-    y: content.y,
-    width: content.width,
-    height: content.height,
-    rotation: content.rotation,
-  };
-
-  if (content.type === 'shape') {
-    const p = content.properties as ShapeProperties;
-    const shapeConfig = { ...commonConfig, fill: p.fill, stroke: p.stroke, strokeWidth: p.strokeWidth, opacity: p.opacity };
-    if (p.shapeType === 'rectangle') {
-      return new Konva.Rect({ ...shapeConfig, cornerRadius: p.cornerRadius || 0 });
-    } else if (p.shapeType === 'circle') {
-      const r = Math.min(content.width, content.height) / 2;
-      return new Konva.Circle({ ...shapeConfig, x: commonConfig.x + r, y: commonConfig.y + r, radius: r });
-    } else if (p.shapeType === 'triangle') {
-        return new Konva.RegularPolygon({ ...shapeConfig, x: commonConfig.x + content.width / 2, y: commonConfig.y + content.height / 2, sides: 3, radius: Math.min(content.width, content.height) / 2 });
-    } else { // line
-        return new Konva.Line({ ...shapeConfig, points: [0, content.height / 2, content.width, content.height / 2], stroke: p.stroke, strokeWidth: p.strokeWidth, lineCap: 'round' });
-    }
-  }
-
-  if (content.type === 'text') {
-    const p = content.properties as TextProperties;
-    return new Konva.Text({
-      ...commonConfig,
-      text: p.text, fontSize: p.fontSize, fontFamily: p.fontFamily,
-      fontStyle: `${p.fontStyle} ${p.fontWeight}`.trim(), fill: p.color, align: p.textAlign,
-    });
-  }
-
-  if (content.type === 'image') {
-    const p = content.properties as ImageProperties;
-    return new Promise((resolve, reject) => {
-      const imageObj = new window.Image();
-      imageObj.crossOrigin = 'anonymous';
-      imageObj.onload = () => {
-        const konvaImage = new Konva.Image({
-          ...commonConfig,
-          image: imageObj,
-          opacity: p.opacity,
-        });
-        resolve(konvaImage);
-      };
-      imageObj.onerror = () => reject(new Error(`Failed to load image from src: ${p.src}`));
-
-      if (p.assetId) {
-        assetStore.getAsset(p.assetId).then(file => {
-          if (file) {
-            imageObj.src = URL.createObjectURL(file);
-          } else {
-            reject(new Error(`Asset not found in database for ID: ${p.assetId}`));
-          }
-        });
-      } else {
-        imageObj.src = p.src;
-      }
-    });
-  }
-
-  if (content.type === 'drawing') {
-    const p = content.properties as any; // DrawingProperties
-    const group = new Konva.Group({ ...commonConfig });
-
-    if (p.paths && p.paths.length > 0) {
-      p.paths.forEach((path: any) => {
-        const points = path.points.flatMap((pt: any) => [pt.x, pt.y]);
-        const line = new Konva.Line({
-          points,
-          stroke: p.strokeColor,
-          strokeWidth: p.strokeWidth,
-          opacity: p.opacity,
-          lineCap: p.lineCap || 'round',
-          lineJoin: p.lineJoin || 'round',
-          tension: p.smoothing ? 0.5 : 0,
-        });
-        group.add(line);
-      });
-    }
-    return group;
-  }
-
-  return null;
-}
+// generatePDF moved to composable
 </script>
 
 <style scoped>
@@ -408,11 +216,14 @@ async function createKonvaNode(content: ZineContent): Promise<Konva.Node | null>
   margin-top: 0.75rem;
 }
 
+.export-options { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.5rem; color: var(--ui-ink); }
+.export-options label { display: inline-flex; gap: 0.35rem; align-items: center; font-size: 0.85rem; }
+
 .export-button {
   width: 100%;
   padding: 0.6rem;
-  background: var(--accent-red);
-  color: #fff;
+  background: var(--accent-green);
+  color: #000;
   border: 1.5px solid var(--border);
   border-radius: 6px;
   font-weight: 700;

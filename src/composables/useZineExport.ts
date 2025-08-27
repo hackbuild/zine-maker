@@ -1,0 +1,216 @@
+import Konva from 'konva';
+import jsPDF from 'jspdf';
+import type { ZineProject, ZineContent, ZineTemplate, ShapeProperties, TextProperties, ImageProperties } from '@/types';
+
+export interface ExportOptions {
+  showPageNumbers?: boolean;
+  showFoldMarks?: boolean;
+  showCutMarks?: boolean;
+  pixelRatio?: number;
+}
+
+export type GetAssetFn = (id: number) => Promise<File | undefined>;
+
+export async function exportZineForTemplate(
+  project: ZineProject,
+  getAsset: GetAssetFn,
+  options: ExportOptions = {}
+): Promise<{ images: string[]; pdfData: string; width: number; height: number }> {
+  const template = project.template as ZineTemplate;
+  const width = template.printLayout.sheetWidth;
+  const height = template.printLayout.sheetHeight;
+  const pixelRatio = options.pixelRatio ?? 2;
+
+  const tempContainer = document.createElement('div');
+  tempContainer.style.position = 'absolute';
+  tempContainer.style.left = '-9999px';
+  tempContainer.style.top = '-9999px';
+  tempContainer.style.width = `${width}px`;
+  tempContainer.style.height = `${height}px`;
+  document.body.appendChild(tempContainer);
+
+  try {
+    async function renderSide(side: 'front' | 'back', positions: any[]): Promise<string> {
+      const stage = new Konva.Stage({ container: tempContainer, width, height });
+      const layer = new Konva.Layer();
+      stage.add(layer);
+      layer.add(new Konva.Rect({ x: 0, y: 0, width, height, fill: 'white' }));
+
+      const nodePromises: Promise<void>[] = [];
+      for (const pagePos of positions) {
+        const page = project.pages.find(p => p.pageNumber === pagePos.pageNumber);
+        if (!page) continue;
+        const group = new Konva.Group({ x: pagePos.x, y: pagePos.y, clip: { x: 0, y: 0, width: pagePos.width, height: pagePos.height } });
+        group.add(new Konva.Rect({ x: 0, y: 0, width: pagePos.width, height: pagePos.height, fill: page.backgroundColor || 'white' }));
+
+        if (options.showPageNumbers) {
+          group.add(new Konva.Text({ text: String(page.pageNumber), x: pagePos.width - 20, y: pagePos.height - 18, fontSize: 12, fill: '#111827', align: 'right' }));
+        }
+
+        const sorted = [...page.content].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+        for (const content of sorted) {
+          const promise = createKonvaNode(content, getAsset).then(node => { if (node) group.add(node as Konva.Shape); });
+          nodePromises.push(promise);
+        }
+
+        if (pagePos.rotation !== 0) {
+          group.rotation(pagePos.rotation);
+          group.offsetX(pagePos.width / 2);
+          group.offsetY(pagePos.height / 2);
+          group.x(pagePos.x + pagePos.width / 2);
+          group.y(pagePos.y + pagePos.height / 2);
+        }
+        if (pagePos.isFlipped) {
+          group.scaleX(-1);
+          group.offsetX(pagePos.width);
+        }
+        layer.add(group);
+      }
+
+      await Promise.all(nodePromises);
+      if (options.showFoldMarks) {
+        if (project.template.format === 'quarter-fold') {
+          // Vertical quarters and horizontal center, used as guides
+          layer.add(new Konva.Line({ points: [width / 4, 0, width / 4, height], stroke: '#9ca3af', dash: [6, 4], listening: false }));
+          layer.add(new Konva.Line({ points: [width / 2, 0, width / 2, height], stroke: '#9ca3af', dash: [6, 4], listening: false }));
+          layer.add(new Konva.Line({ points: [width * 3 / 4, 0, width * 3 / 4, height], stroke: '#9ca3af', dash: [6, 4], listening: false }));
+          layer.add(new Konva.Line({ points: [0, height / 2, width, height / 2], stroke: '#9ca3af', dash: [6, 4], listening: false }));
+        } else if (project.template.format === 'half-fold' || project.template.format === 'booklet') {
+          // Center fold line
+          layer.add(new Konva.Line({ points: [width / 2, 0, width / 2, height], stroke: '#9ca3af', dash: [6, 4], listening: false }));
+        }
+      }
+      if (options.showCutMarks) {
+        if (project.template.format === 'quarter-fold') {
+          // Slit cut only across the middle two panels: from width/4 to 3*width/4 on center line
+          const y = height / 2;
+          const x1 = width / 4;
+          const x2 = (width * 3) / 4;
+          layer.add(new Konva.Line({ points: [x1, y, x2, y], stroke: '#111827', dash: [10, 8], listening: false }));
+        } else {
+          // Corner crop marks
+          const m = 18, len = 24;
+          layer.add(new Konva.Line({ points: [m, m + len, m, m, m + len, m], stroke: '#111827', listening: false }));
+          layer.add(new Konva.Line({ points: [width - m, m + len, width - m, m, width - m - len, m], stroke: '#111827', listening: false }));
+          layer.add(new Konva.Line({ points: [m, height - m - len, m, height - m, m + len, height - m], stroke: '#111827', listening: false }));
+          layer.add(new Konva.Line({ points: [width - m, height - m - len, width - m, height - m, width - m - len, height - m], stroke: '#111827', listening: false }));
+        }
+      }
+
+      await new Promise<void>(resolve => { layer.draw(); requestAnimationFrame(() => setTimeout(resolve, 40)); });
+      const data = stage.toDataURL({ x: 0, y: 0, width, height, pixelRatio });
+      stage.destroy();
+      return data;
+    }
+
+    const images: string[] = [];
+    if (template.format === 'booklet') {
+      // Booklet: build sheets from page count, pairing outer to inner.
+      // Each sheet has two pages per side: [left|right].
+      const pageCount = project.pages.length;
+      const sheets = Math.ceil(pageCount / 4);
+      for (let i = 0; i < sheets; i++) {
+        const leftFront = pageCount - (2 * i);
+        const rightFront = 1 + (2 * i);
+        const leftBack = 2 + (2 * i);
+        const rightBack = pageCount - 1 - (2 * i);
+
+        const frontPositions = [
+          { pageNumber: leftFront, x: 0, y: 0, width: width / 2, height: height, rotation: 0, isFlipped: false },
+          { pageNumber: rightFront, x: width / 2, y: 0, width: width / 2, height: height, rotation: 0, isFlipped: false }
+        ].filter(p => p.pageNumber >= 1 && p.pageNumber <= pageCount);
+
+        const backPositions = [
+          { pageNumber: leftBack, x: 0, y: 0, width: width / 2, height: height, rotation: 0, isFlipped: false },
+          { pageNumber: rightBack, x: width / 2, y: 0, width: width / 2, height: height, rotation: 0, isFlipped: false }
+        ].filter(p => p.pageNumber >= 1 && p.pageNumber <= pageCount);
+
+        const sheetFront = await renderSide('front', frontPositions as any);
+        const sheetBack = await renderSide('back', backPositions as any);
+        images.push(sheetFront, sheetBack);
+      }
+    } else if (template.format === 'half-fold') {
+      const front = await renderSide('front', template.printLayout.pagePositions.filter(p => p.side === 'front'));
+      const back = await renderSide('back', template.printLayout.pagePositions.filter(p => p.side === 'back'));
+      images.push(front, back);
+    } else if (template.format === 'quarter-fold') {
+      // Single sheet, single side (slit zine is one-sided)
+      const front = await renderSide('front', template.printLayout.pagePositions);
+      images.push(front);
+    } else {
+      // Fallback: single side
+      const only = await renderSide('front', template.printLayout.pagePositions);
+      images.push(only);
+    }
+
+    const pdfData = await generatePDF(images, width, height);
+    return { images, pdfData, width: width * pixelRatio, height: height * pixelRatio };
+  } finally {
+    document.body.removeChild(tempContainer);
+  }
+}
+
+export async function createKonvaNode(content: ZineContent, getAsset: GetAssetFn): Promise<Konva.Node | null> {
+  const common = { x: content.x, y: content.y, width: content.width, height: content.height, rotation: content.rotation } as const;
+
+  if (content.type === 'shape') {
+    const p = content.properties as ShapeProperties;
+    const cfg = { ...common, fill: p.fill, stroke: p.stroke, strokeWidth: p.strokeWidth, opacity: p.opacity };
+    if (p.shapeType === 'rectangle') return new Konva.Rect({ ...cfg, cornerRadius: p.cornerRadius || 0 });
+    if (p.shapeType === 'circle') {
+      const r = Math.min(content.width, content.height) / 2;
+      return new Konva.Circle({ ...cfg, x: common.x + r, y: common.y + r, radius: r });
+    }
+    if (p.shapeType === 'triangle') return new Konva.RegularPolygon({ ...cfg, x: common.x + content.width / 2, y: common.y + content.height / 2, sides: 3, radius: Math.min(content.width, content.height) / 2 });
+    return new Konva.Line({ ...cfg, points: [0, content.height / 2, content.width, content.height / 2], lineCap: 'round' });
+  }
+
+  if (content.type === 'text') {
+    const p = content.properties as TextProperties;
+    return new Konva.Text({ ...common, text: p.text, fontSize: p.fontSize, fontFamily: p.fontFamily, fontStyle: `${p.fontStyle} ${p.fontWeight}`.trim(), fill: p.color, align: p.textAlign });
+  }
+
+  if (content.type === 'image') {
+    const p = content.properties as ImageProperties;
+    return new Promise((resolve, reject) => {
+      const imageObj = new window.Image();
+      imageObj.crossOrigin = 'anonymous';
+      imageObj.onload = () => resolve(new Konva.Image({ ...common, image: imageObj, opacity: p.opacity }));
+      imageObj.onerror = () => reject(new Error(`Failed to load image from src: ${p.src}`));
+      if (p.assetId) {
+        getAsset(p.assetId).then(file => { if (file) imageObj.src = URL.createObjectURL(file); else reject(new Error(`Asset not found: ${p.assetId}`)); });
+      } else {
+        imageObj.src = p.src;
+      }
+    });
+  }
+
+  if (content.type === 'drawing') {
+    const p: any = content.properties;
+    const group = new Konva.Group({ ...common });
+    if (p.paths && p.paths.length > 0) {
+      p.paths.forEach((path: any) => {
+        const points = path.points.flatMap((pt: any) => [pt.x, pt.y]);
+        group.add(new Konva.Line({ points, stroke: p.strokeColor, strokeWidth: p.strokeWidth, opacity: p.opacity, lineCap: p.lineCap || 'round', lineJoin: p.lineJoin || 'round', tension: p.smoothing ? 0.5 : 0 }));
+      });
+    }
+    return group;
+  }
+
+  return null;
+}
+
+export async function generatePDF(images: string[], width: number, height: number): Promise<string> {
+  // width/height are in points (72 dpi). Ensure we pass sheet size (not pixelRatio scaled) to jsPDF.
+  const widthInches = width / 72;
+  const heightInches = height / 72;
+  const orientation = widthInches > heightInches ? 'landscape' : 'portrait';
+  const pdf = new jsPDF({ orientation: orientation as any, unit: 'in', format: [widthInches, heightInches] });
+  images.forEach((dataURL, idx) => {
+    if (idx > 0) pdf.addPage([widthInches, heightInches], orientation as any);
+    pdf.addImage(dataURL, 'PNG', 0, 0, widthInches, heightInches);
+  });
+  return pdf.output('datauristring');
+}
+
+

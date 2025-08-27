@@ -26,12 +26,13 @@
       </div>
 
       <div class="preview-container">
-        <div v-if="activeTab === 'png' && imageSrc" class="png-wrapper">
-          <img :src="imageSrc" alt="Zine Preview" class="png-image" />
+        <div v-if="activeTab === 'png' && currentPng" class="png-wrapper">
+          <div class="page-label" v-if="uiStore.exportImages.length >= 1">{{ sideLabel }}</div>
+          <img :src="currentPng" alt="Zine Preview" class="png-image" />
         </div>
         <div v-else-if="activeTab === 'png'" class="no-preview">
           <p>PNG preview not available</p>
-          <p class="debug">Image data length: {{ imageSrc.length }}</p>
+          <p class="debug">No images generated</p>
         </div>
         <iframe 
           v-else-if="activeTab === 'pdf' && pdfSrc" 
@@ -42,6 +43,12 @@
           <p>PDF preview not available</p>
           <p class="debug">PDF data length: {{ pdfSrc ? pdfSrc.length : 0 }}</p>
         </div>
+      </div>
+
+      <div class="pager-row" v-if="activeTab==='png' && uiStore.exportImages.length > 1">
+        <button class="pager-btn" @click="prevPage" :disabled="pageIndex===0">← Prev</button>
+        <span class="pager-indicator">{{ pageIndex + 1 }} / {{ uiStore.exportImages.length }}</span>
+        <button class="pager-btn" @click="nextPage" :disabled="pageIndex===uiStore.exportImages.length-1">Next →</button>
       </div>
 
       <div class="export-actions">
@@ -74,10 +81,7 @@ import { ref, computed } from 'vue';
 import { Download, FileText } from 'lucide-vue-next';
 import { useUIStore } from '@/stores/ui';
 
-const props = defineProps<{
-  visible: boolean;
-  imageSrc: string;
-}>();
+const props = defineProps<{ visible: boolean; imageSrc: string }>();
 
 defineEmits<{
   (e: 'close'): void;
@@ -85,6 +89,16 @@ defineEmits<{
 
 const uiStore = useUIStore();
 const activeTab = ref<'png' | 'pdf'>('png');
+const pageIndex = ref(0);
+const currentPng = computed(() => uiStore.exportImages.length ? uiStore.exportImages[pageIndex.value] : props.imageSrc);
+
+function nextPage() { if (pageIndex.value < uiStore.exportImages.length - 1) pageIndex.value++; }
+function prevPage() { if (pageIndex.value > 0) pageIndex.value--; }
+
+const sideLabel = computed(() => {
+  if (uiStore.exportImages.length === 2) return pageIndex.value === 0 ? 'Front (Side 1)' : 'Back (Side 2)';
+  return 'Sheet';
+});
 
 const pdfSrc = computed(() => {
   // If exportPdfData is a data URL, convert to blob URL for better iframe compatibility
@@ -108,8 +122,8 @@ const pdfSrc = computed(() => {
 
 function downloadPng() {
   const link = document.createElement('a');
-  link.href = props.imageSrc;
-  link.download = 'zine-export.png';
+  link.href = currentPng.value || props.imageSrc;
+  link.download = `zine-export-${pageIndex.value + 1}.png`;
   link.click();
 }
 
@@ -196,9 +210,9 @@ function downloadPdf() {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: 0.75rem;
   overflow: auto;
-  height: 65vh; /* dedicate fixed, generous viewport area so image can scale to fit */
+  height: 60vh; /* fixed viewport area so image can scale to fit */
 }
 .png-wrapper {
   width: 100%;
@@ -206,13 +220,26 @@ function downloadPdf() {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 .png-image {
   display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+  max-width: calc(100% - 8px);
+  max-height: calc(100% - 8px);
+  width: auto;
+  height: auto;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.page-label {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0,0,0,.65);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  letter-spacing: .02em;
 }
 .pdf-preview {
   width: 100%;
@@ -239,6 +266,17 @@ function downloadPdf() {
   gap: 1rem;
   padding-top: 1.5rem;
 }
+
+.pager-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: .75rem;
+  margin-top: .75rem;
+}
+.pager-btn { border: 1px solid var(--border-soft); background: var(--surface); color: var(--ui-ink); padding: .4rem .7rem; border-radius: 6px; cursor: pointer; }
+.pager-btn:disabled { opacity: .5; cursor: not-allowed; }
+.pager-indicator { color: var(--ui-ink); font-size: .9rem; }
 
 .download-button {
   display: flex;

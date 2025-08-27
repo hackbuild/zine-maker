@@ -23,47 +23,76 @@
               <v-rect
                 v-if="node.kind === 'shape' && node.shapeType === 'rectangle'"
                 :config="node.config"
+                @mousedown="onNodeMouseDown(node.id, $event)"
                 @click="selectNode(node.id, $event)"
+                @dblclick="onNodeDblClick(node.id, $event)"
+                @dragmove="onNodeDragMove(node.id, $event)"
                 @dragend="onDragEnd(node.id, $event)"
               />
               <v-circle
                 v-else-if="node.kind === 'shape' && node.shapeType === 'circle'"
                 :config="node.config"
+                @mousedown="onNodeMouseDown(node.id, $event)"
                 @click="selectNode(node.id, $event)"
+                @dblclick="onNodeDblClick(node.id, $event)"
+                @dragmove="onNodeDragMove(node.id, $event)"
                 @dragend="onDragEnd(node.id, $event)"
               />
               <v-line
                 v-else-if="node.kind === 'shape' && node.shapeType === 'line'"
                 :config="node.config"
+                @mousedown="onNodeMouseDown(node.id, $event)"
                 @click="selectNode(node.id, $event)"
+                @dblclick="onNodeDblClick(node.id, $event)"
+                @dragmove="onNodeDragMove(node.id, $event)"
                 @dragend="onDragEnd(node.id, $event)"
               />
               <v-regular-polygon
                 v-else-if="node.kind === 'shape' && node.shapeType === 'triangle'"
                 :config="node.config"
+                @mousedown="onNodeMouseDown(node.id, $event)"
                 @click="selectNode(node.id, $event)"
+                @dblclick="onNodeDblClick(node.id, $event)"
+                @dragmove="onNodeDragMove(node.id, $event)"
                 @dragend="onDragEnd(node.id, $event)"
               />
               <v-text
                 v-else-if="node.kind === 'text'"
-                :config="{ ...node.config, draggable: toolsStore.activeTool === 'select' }"
+                :config="node.config"
+                @mousedown="onNodeMouseDown(node.id, $event)"
                 @click="selectNode(node.id, $event)"
-                @dblclick="startTextEdit(node.id, $event)"
+                @dblclick="onNodeDblClick(node.id, $event)"
+                @dragmove="onNodeDragMove(node.id, $event)"
                 @dragend="onDragEnd(node.id, $event)"
               />
               <v-image
                 v-else-if="node.kind === 'image'"
                 :config="node.config"
+                @mousedown="onNodeMouseDown(node.id, $event)"
                 @click="selectNode(node.id, $event)"
+                @dblclick="onNodeDblClick(node.id, $event)"
+                @dragmove="onNodeDragMove(node.id, $event)"
                 @dragend="onDragEnd(node.id, $event)"
               />
               <v-line
                 v-else-if="node.kind === 'drawing'"
                 :config="node.config"
+                @mousedown="onNodeMouseDown(node.id, $event)"
                 @click="selectNode(node.id, $event)"
+                @dblclick="onNodeDblClick(node.id, $event)"
+                @dragmove="onNodeDragMove(node.id, $event)"
                 @dragend="onDragEnd(node.id, $event)"
               />
             </template>
+
+            <!-- Selection overlay to keep group/multi selection when clicking inside bounds -->
+            <v-rect
+              v-if="hasSelection && selectionBounds"
+              :config="{ x: selectionBounds.x, y: selectionBounds.y, width: selectionBounds.width, height: selectionBounds.height, fill: 'rgba(0,0,0,0)', listening: true, id: 'selection-overlay' }"
+              @mousedown="onOverlayMouseDown"
+              @mousemove="onOverlayMouseMove"
+              @mouseup="onOverlayMouseUp"
+            />
 
             <!-- Selection marquee -->
             <v-rect v-if="isSelecting"
@@ -102,7 +131,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick, shallowRef } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick, shallowRef } from 'vue';
 import { useProjectStore } from '@/stores/project';
 import { useToolsStore } from '@/stores/tools';
 import { useAssetStore } from '@/stores/assetStore';
@@ -123,27 +152,31 @@ const stageWrapper = ref<HTMLDivElement | null>(null);
 const canvasContainer = ref<HTMLDivElement | null>(null);
 
 const scaleBy = 1.05;
+const containerPad = 40;
+
+const containerSize = ref<{ w: number; h: number }>({ w: 0, h: 0 });
 
 const stageConfig = computed(() => {
-  // Stage sized to exactly the page plus a margin for handles/fit calc
-  const width = pageBackgroundConfig.value.width + 100;
-  const height = pageBackgroundConfig.value.height + 100;
+  const width = Math.max(10, containerSize.value.w || (pageBackgroundConfig.value.width + containerPad * 2));
+  const height = Math.max(10, containerSize.value.h || (pageBackgroundConfig.value.height + containerPad * 2));
   return { width, height, draggable: isSpacePanning.value || toolsStore.activeTool === 'pan' };
 });
 
 const selectedIds = computed(() => projectStore.selectedContentIds);
 const hasSelection = computed(() => selectedIds.value.length > 0);
+const isolatedGroupId = ref<string | null>(null);
+const selectionBounds = ref<{ x: number; y: number; width: number; height: number } | null>(null);
 
 // Page background config
 const pageBackgroundConfig = computed(() => {
   const template = projectStore.currentProject?.template;
   if (!template) return { id: 'page-background', x: 50, y: 50, width: 400, height: 300, fill: 'white', stroke: '#e5e7eb', strokeWidth: 1 };
   
-  const pagePos = template.printLayout.pagePositions[0];
+  const pagePos = template.pageCanvas || template.printLayout.pagePositions[0];
   return {
     id: 'page-background',
-    x: 50,
-    y: 50,
+    x: containerPad,
+    y: containerPad,
     width: pagePos.width,
     height: pagePos.height,
     fill: 'white',
@@ -152,6 +185,7 @@ const pageBackgroundConfig = computed(() => {
     listening: true // use as deselect area only
   };
 });
+
 
 // Build Konva configs from current page content
 const pageNodes = shallowRef<any[]>([]);
@@ -170,7 +204,7 @@ watch(() => projectStore.currentPage?.content, async (content) => {
       width: c.width,
       height: c.height,
       rotation: c.rotation,
-      draggable: toolsStore.activeTool === 'select'
+      draggable: toolsStore.activeTool === 'select' && selectedIds.value.includes(c.id)
     };
 
     if (c.type === 'shape') {
@@ -184,21 +218,23 @@ watch(() => projectStore.currentPage?.content, async (content) => {
       };
       const isVisible = (c as any).visible !== false;
       const isLocked = !!(c as any).locked;
+      const isSelected = selectedIds.value.includes(c.id);
       if (p.shapeType === 'rectangle') {
-        return { id: c.id, kind: 'shape', shapeType: 'rectangle', config: { ...shapeCommon, cornerRadius: p.cornerRadius || 0, visible: isVisible, draggable: toolsStore.activeTool === 'select' && !isLocked, listening: !isLocked } };
+        return { id: c.id, kind: 'shape', shapeType: 'rectangle', config: { ...shapeCommon, cornerRadius: p.cornerRadius || 0, visible: isVisible, draggable: toolsStore.activeTool === 'select' && isSelected && !isLocked, listening: !isLocked } };
       } else if (p.shapeType === 'circle') {
         const r = Math.min(c.width, c.height) / 2;
-        return { id: c.id, kind: 'shape', shapeType: 'circle', config: { ...shapeCommon, x: common.x + r, y: common.y + r, radius: r, visible: isVisible, draggable: toolsStore.activeTool === 'select' && !isLocked, listening: !isLocked } };
+        return { id: c.id, kind: 'shape', shapeType: 'circle', config: { ...shapeCommon, x: common.x + r, y: common.y + r, radius: r, visible: isVisible, draggable: toolsStore.activeTool === 'select' && isSelected && !isLocked, listening: !isLocked } };
       } else if (p.shapeType === 'triangle') {
-        return { id: c.id, kind: 'shape', shapeType: 'triangle', config: { ...shapeCommon, x: common.x + c.width / 2, y: common.y + c.height / 2, sides: 3, radius: Math.min(c.width, c.height) / 2, visible: isVisible, draggable: toolsStore.activeTool === 'select' && !isLocked, listening: !isLocked }};
+        return { id: c.id, kind: 'shape', shapeType: 'triangle', config: { ...shapeCommon, x: common.x + c.width / 2, y: common.y + c.height / 2, sides: 3, radius: Math.min(c.width, c.height) / 2, visible: isVisible, draggable: toolsStore.activeTool === 'select' && isSelected && !isLocked, listening: !isLocked }};
       } else {
-        return { id: c.id, kind: 'shape', shapeType: 'line', config: { ...shapeCommon, points: [0, c.height / 2, c.width, c.height / 2], stroke: p.stroke, strokeWidth: p.strokeWidth, lineCap: 'round', visible: isVisible, draggable: toolsStore.activeTool === 'select' && !isLocked, listening: !isLocked } };
+        return { id: c.id, kind: 'shape', shapeType: 'line', config: { ...shapeCommon, points: [0, c.height / 2, c.width, c.height / 2], stroke: p.stroke, strokeWidth: p.strokeWidth, lineCap: 'round', visible: isVisible, draggable: toolsStore.activeTool === 'select' && isSelected && !isLocked, listening: !isLocked } };
       }
     }
     if (c.type === 'text') {
       const p = c.properties as TextProperties;
       const isVisible = (c as any).visible !== false;
       const isLocked = !!(c as any).locked;
+      const isSelected = selectedIds.value.includes(c.id);
       return {
         id: c.id,
         kind: 'text',
@@ -211,7 +247,7 @@ watch(() => projectStore.currentPage?.content, async (content) => {
           fill: p.color,
           align: p.textAlign,
           visible: isVisible,
-          draggable: toolsStore.activeTool === 'select' && !isLocked,
+          draggable: toolsStore.activeTool === 'select' && isSelected && !isLocked,
           listening: !isLocked
         }
       };
@@ -220,6 +256,7 @@ watch(() => projectStore.currentPage?.content, async (content) => {
       const p = c.properties as ImageProperties;
       const isVisible = (c as any).visible !== false;
       const isLocked = !!(c as any).locked;
+      const isSelected = selectedIds.value.includes(c.id);
       const imageObj = new window.Image();
       
       if (p.assetId) {
@@ -239,7 +276,7 @@ watch(() => projectStore.currentPage?.content, async (content) => {
           image: imageObj,
           opacity: p.opacity,
           visible: isVisible,
-          draggable: toolsStore.activeTool === 'select' && !isLocked,
+          draggable: toolsStore.activeTool === 'select' && isSelected && !isLocked,
           listening: !isLocked
         }
       };
@@ -255,6 +292,7 @@ watch(() => projectStore.currentPage?.content, async (content) => {
         ]);
         const isVisible = (c as any).visible !== false;
         const isLocked = !!(c as any).locked;
+        const isSelected = selectedIds.value.includes(c.id);
         return {
           id: c.id,
           kind: 'drawing',
@@ -268,10 +306,11 @@ watch(() => projectStore.currentPage?.content, async (content) => {
             lineCap: p.lineCap || 'round',
             lineJoin: p.lineJoin || 'round',
             tension: p.smoothing ? 0.5 : 0,
-            draggable: toolsStore.activeTool === 'select' && !isLocked,
+            draggable: toolsStore.activeTool === 'select' && isSelected && !isLocked,
             listening: !isLocked,
             visible: isVisible,
-            hitStrokeWidth: Math.max(p.strokeWidth, 10) // Make thin lines easier to select
+            hitStrokeWidth: Math.max(p.strokeWidth, 10), // Make thin lines easier to select
+            id: c.id
           }
         };
       }
@@ -297,6 +336,7 @@ function attachTransformer() {
       tr.hide();
       const layer = contentLayerRef.value?.getNode?.();
       layer?.batchDraw();
+      selectionBounds.value = null;
       return;
     }
 
@@ -311,8 +351,21 @@ function attachTransformer() {
     if (nodesToAttach.length > 0) {
       tr.nodes(nodesToAttach);
       tr.show();
+      // Update selection bounds based on attached nodes
+      try {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        nodesToAttach.forEach((n) => {
+          const r = (n as any).getClientRect({ skipShadow: true });
+          minX = Math.min(minX, r.x);
+          minY = Math.min(minY, r.y);
+          maxX = Math.max(maxX, r.x + r.width);
+          maxY = Math.max(maxY, r.y + r.height);
+        });
+        selectionBounds.value = { x: minX, y: minY, width: Math.max(0, maxX - minX), height: Math.max(0, maxY - minY) };
+      } catch {}
     } else {
       tr.hide();
+      selectionBounds.value = null;
     }
     
     const layer = contentLayerRef.value?.getNode?.();
@@ -324,19 +377,95 @@ watch(selectedIds, () => attachTransformer(), { immediate: true });
 watch(pageNodes, () => attachTransformer());
 
 function selectNode(id: string, e?: any) {
-  if (toolsStore.activeTool === 'select') {
-    const isShiftKey = !!e?.evt?.shiftKey;
-    projectStore.selectContent(id, isShiftKey);
-    
-    // Prevent event bubbling to avoid deselection
-    if (e?.evt) {
-      e.evt.stopPropagation();
+  if (toolsStore.activeTool !== 'select') return;
+  const isShiftKey = !!e?.evt?.shiftKey;
+  const content = projectStore.getContentById(id);
+  const groupId = (content as any)?.groupId as string | undefined;
+  if (!isShiftKey && groupId && isolatedGroupId.value !== groupId) {
+    // Select entire group
+    const page = projectStore.currentPage;
+    if (page) {
+      const ids = page.content.filter(c => (c as any).groupId === groupId).map(c => c.id);
+      projectStore.clearSelection();
+      ids.forEach((cid, idx) => projectStore.selectContent(cid, idx > 0));
     }
+  } else {
+    projectStore.selectContent(id, isShiftKey);
   }
+
+  if (e?.evt) e.evt.stopPropagation();
+}
+
+function onNodeDblClick(id: string, e: any) {
+  const content = projectStore.getContentById(id);
+  const groupId = (content as any)?.groupId as string | undefined;
+  if (groupId) {
+    if (isolatedGroupId.value !== groupId) {
+      // Enter isolation mode for this group so clicks affect individuals
+      isolatedGroupId.value = groupId;
+      projectStore.clearSelection();
+      projectStore.selectContent(id, false);
+      if (e?.evt) e.evt.stopPropagation();
+      return;
+    } else {
+      // Already isolated, forward to text edit if text
+      if ((content as any).type === 'text') startTextEdit(id, e);
+    }
+  } else {
+    if ((content as any).type === 'text') startTextEdit(id, e);
+  }
+}
+
+// Prevent immediate drag on simple click: mark click start and cancel drag if mouseup occurs without movement
+let pointerDownPos: { x: number; y: number } | null = null;
+const DRAG_THRESHOLD = 4; // px
+function onNodeMouseDown(id: string, e: any) {
+  if (toolsStore.activeTool !== 'select') return;
+  const stage = stageRef.value?.getNode?.();
+  if (!stage) return;
+  const pointer = stage.getPointerPosition();
+  if (pointer) pointerDownPos = { x: pointer.x, y: pointer.y };
+
+  // Disable dragging at mousedown to avoid follow-cursor-on-click
+  const node = e.target as Konva.Node;
+  if (node && typeof (node as any).draggable === 'function') {
+    (node as any)._wasDraggable = node.draggable();
+    node.draggable(false);
+  }
+
+  // Select the node (respect shift for multi-select)
+  const isShiftKey = !!e?.evt?.shiftKey;
+  projectStore.selectContent(id, isShiftKey);
+  if (e?.evt) e.evt.stopPropagation();
+}
+
+function onNodeDragMove(id: string, e: any) {
+  // When a selected node moves, move other selected nodes by same delta (multi-drag)
+  const node = e.target as Konva.Node;
+  const pos = node.position();
+  const prev = (node as any)._prevPos || { x: pos.x, y: pos.y };
+  const deltaX = pos.x - prev.x;
+  const deltaY = pos.y - prev.y;
+  (node as any)._prevPos = { x: pos.x, y: pos.y };
+
+  // Apply same motion to other selected nodes except current
+  const stage = stageRef.value?.getNode?.();
+  const tr = transformerRef.value?.getNode?.();
+  if (!stage || !tr) return;
+  const selected = tr.nodes().filter((n: Konva.Node) => n.id() !== node.id());
+  selected.forEach((n: Konva.Node) => {
+    const p = n.position();
+    n.position({ x: p.x + deltaX, y: p.y + deltaY });
+  });
+  const layer = contentLayerRef.value?.getNode?.();
+  layer?.batchDraw();
 }
 
 function onDragEnd(id: string, e: any) {
   const node = e.target as Konva.Node;
+  // Clear per-node temp state
+  (node as any)._prevPos = undefined;
+  (node as any)._lastDx = undefined;
   
   if (node.className === 'Line') {
     // Special handling for Line objects (drawings)
@@ -363,6 +492,50 @@ function onDragEnd(id: string, e: any) {
     const { x, y } = node.position();
     projectStore.updateContent(id, { x: x - pageBackgroundConfig.value.x, y: y - pageBackgroundConfig.value.y });
   }
+}
+
+// Overlay drag to move selection when clicking inside selection bounds (not on a node)
+let overlayDragStart: { x: number; y: number } | null = null;
+function onOverlayMouseDown(e: any) {
+  const stage = stageRef.value?.getNode?.();
+  if (!stage) return;
+  const p = stage.getPointerPosition();
+  if (!p) return;
+  overlayDragStart = { x: p.x, y: p.y };
+  if (e?.evt) e.evt.stopPropagation();
+}
+function onOverlayMouseMove(e: any) {
+  if (!overlayDragStart || !hasSelection.value) return;
+  const stage = stageRef.value?.getNode?.();
+  const layer = contentLayerRef.value?.getNode?.();
+  if (!stage || !layer) return;
+  const p = stage.getPointerPosition();
+  if (!p) return;
+  const dx = p.x - overlayDragStart.x;
+  const dy = p.y - overlayDragStart.y;
+  overlayDragStart = { x: p.x, y: p.y };
+  const tr = transformerRef.value?.getNode?.();
+  const nodes = tr ? (tr.nodes() as Konva.Node[]) : [];
+  nodes.forEach((n) => {
+    const pos = n.position();
+    n.position({ x: pos.x + dx, y: pos.y + dy });
+  });
+  layer.batchDraw();
+  if (e?.evt) e.evt.stopPropagation();
+}
+function onOverlayMouseUp(e: any) {
+  if (!hasSelection.value) { overlayDragStart = null; return; }
+  const stage = stageRef.value?.getNode?.();
+  if (!stage) { overlayDragStart = null; return; }
+  const tr = transformerRef.value?.getNode?.();
+  const nodes = tr ? (tr.nodes() as Konva.Node[]) : [];
+  nodes.forEach((n) => {
+    const id = n.id();
+    const pos = n.position();
+    projectStore.updateContent(id, { x: pos.x - pageBackgroundConfig.value.x, y: pos.y - pageBackgroundConfig.value.y });
+  });
+  overlayDragStart = null;
+  if (e?.evt) e.evt.stopPropagation();
 }
 
 function onWheel(e: any) {
@@ -397,9 +570,9 @@ function onWheel(e: any) {
 
 function getAvailableSize(): { w: number; h: number } {
   const container = canvasContainer.value || stageWrapper.value;
-  const w = container?.clientWidth || stageRef.value?.getNode?.()?.width() || 0;
-  const h = container?.clientHeight || stageRef.value?.getNode?.()?.height() || 0;
-  return { w, h };
+  const w = (container?.clientWidth || stageRef.value?.getNode?.()?.width() || 0) - containerPad * 2;
+  const h = (container?.clientHeight || stageRef.value?.getNode?.()?.height() || 0) - containerPad * 2;
+  return { w: Math.max(0, w), h: Math.max(0, h) };
 }
 
 function centerOnPage(stage: Konva.Stage, scale: number): void {
@@ -407,25 +580,24 @@ function centerOnPage(stage: Konva.Stage, scale: number): void {
   const { w, h } = getAvailableSize();
   const pageCenterX = (bg.x + bg.width / 2) * scale;
   const pageCenterY = (bg.y + bg.height / 2) * scale;
-  const posX = w / 2 - pageCenterX;
-  const posY = h / 2 - pageCenterY;
+  const posX = containerPad + w / 2 - pageCenterX;
+  const posY = containerPad + h / 2 - pageCenterY;
   stage.position({ x: posX, y: posY });
   stage.batchDraw();
 }
 
-// Watch for fit requests from UI store
-watch(() => uiStore.shouldFit, (flag) => {
-  if (!flag) return;
+function fitToContainer() {
   const stage = stageRef.value?.getNode?.();
-  if (!stage) { uiStore.shouldFit = false as any; return; }
+  if (!stage) return;
   const bg = pageBackgroundConfig.value;
   const { w, h } = getAvailableSize();
-  const margin = 80;
-  const scale = Math.min((w - margin) / bg.width, (h - margin) / bg.height);
+  const scale = Math.min(w / bg.width, h / bg.height);
   stage.scale({ x: scale, y: scale });
   centerOnPage(stage, scale);
-  uiStore.shouldFit = false as any;
-});
+}
+
+// Watch for fit requests from UI store
+watch(() => uiStore.shouldFit, (flag) => { if (flag) { fitToContainer(); uiStore.shouldFit = false as any; } });
 
 function zoomIn() {
   const stage = stageRef.value?.getNode?.();
@@ -463,11 +635,16 @@ onMounted(() => {
     nodes.forEach((node) => {
       const id = node.id();
       const rotation = node.rotation();
+      // Normalize scale into width/height for rect-like nodes; for lines/drawings keep as is
+      let width = node.width() as number;
+      let height = node.height() as number;
       const scaleX = node.scaleX();
       const scaleY = node.scaleY();
-      const width = (node.width() as number) * scaleX;
-      const height = (node.height() as number) * scaleY;
-      node.scale({ x: 1, y: 1 });
+      if (node.className !== 'Line' && node.className !== 'Group') {
+        width = width * scaleX;
+        height = height * scaleY;
+        node.scale({ x: 1, y: 1 });
+      }
       const pos = node.position();
       projectStore.updateContent(id, { x: pos.x - pageBackgroundConfig.value.x, y: pos.y - pageBackgroundConfig.value.y, width, height, rotation });
     });
@@ -527,7 +704,7 @@ function onStageMouseDown(e: any) {
   // Check if we clicked on the stage (empty area) or page background
   const clickedOnEmpty = e.target === stage || e.target.id?.() === 'page-background';
   
-  if (clickedOnEmpty) {
+  if (clickedOnEmpty || e.evt?.shiftKey) {
     const pos = stage.getPointerPosition();
     if (!pos) return;
     const sp = toStagePoint(stage, pos);
@@ -535,8 +712,8 @@ function onStageMouseDown(e: any) {
     selectionRect.value = { x: sp.x, y: sp.y, width: 0, height: 0 };
     isSelecting.value = true;
     
-    // Only clear selection if not holding shift
-    if (!e.evt?.shiftKey) {
+    // Only clear selection if not holding shift and not starting over a node
+    if (!e.evt?.shiftKey && clickedOnEmpty) {
       projectStore.clearSelection();
     }
   }
@@ -564,8 +741,30 @@ function onStageMouseMove() {
     return;
   }
 
-  if (!isSelecting.value) return;
+  // If we started on a node and have moved past threshold, enable dragging for selected nodes
   const stage = stageRef.value?.getNode?.();
+  if (pointerDownPos && stage) {
+    const p = stage.getPointerPosition();
+    if (p) {
+      const dx = p.x - pointerDownPos.x;
+      const dy = p.y - pointerDownPos.y;
+      if (Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+        const tr = transformerRef.value?.getNode?.();
+        if (tr && tr.nodes().length > 0) {
+          // enable dragging for selected nodes and begin dragging the primary target
+          tr.nodes().forEach((n: any) => n.draggable(true));
+          const stageTarget = (stage as any)._pointerdownTarget as Konva.Node | undefined;
+          const primary = stageTarget && tr.nodes().some((n: Konva.Node) => n.id() === stageTarget.id())
+            ? stageTarget
+            : tr.nodes()[0];
+          try { (primary as any).startDrag(); } catch {}
+        }
+        pointerDownPos = null;
+      }
+    }
+  }
+
+  if (!isSelecting.value) return;
   if (!stage) return;
   const pos = stage.getPointerPosition();
   if (!pos) return;
@@ -578,6 +777,7 @@ function onStageMouseMove() {
 }
 
 function onStageMouseUp() {
+  pointerDownPos = null;
   if (isDrawing.value && lastLine) {
     // Convert the drawn line to a drawing content item
     const points = lastLine.points();
@@ -639,7 +839,7 @@ function onStageMouseUp() {
   const box = selectionRect.value;
   const selected: string[] = [];
   
-  // Get all nodes in the layer
+  // Get all nodes in the layer including drawings (Line) and others
   const allNodes = layer.getChildren();
   
   allNodes.forEach((node: any) => {
@@ -701,17 +901,31 @@ const isSpacePanning = ref(false);
 const isDrawing = ref(false);
 let lastLine: Konva.Line | null = null;
 
+let onKeyDown: (e: KeyboardEvent) => void;
+let onKeyUp: (e: KeyboardEvent) => void;
+
 onMounted(() => {
-  const onKeyDown = (e: KeyboardEvent) => {
+  onKeyDown = (e: KeyboardEvent) => {
     if (e.code === 'Space') { isSpacePanning.value = true; }
   };
-  const onKeyUp = (e: KeyboardEvent) => {
+  onKeyUp = (e: KeyboardEvent) => {
     if (e.code === 'Space') { isSpacePanning.value = false; }
   };
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
   // Auto-fit on mount for larger canvas
-  nextTick(() => { uiStore.requestFit(); });
+  nextTick(() => {
+    if (canvasContainer.value) {
+      const rect = canvasContainer.value.getBoundingClientRect();
+      containerSize.value = { w: rect.width, h: rect.height };
+    }
+    fitToContainer();
+  });
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeyDown);
+  window.removeEventListener('keyup', onKeyUp);
 });
 
 let isResizing = false;
@@ -730,11 +944,27 @@ function onResizeMove(e: MouseEvent) {
   if (!isResizing || !canvasContainer.value) return;
   const dx = e.clientX - startPos.x;
   const dy = e.clientY - startPos.y;
-  canvasContainer.value.style.width = `${Math.max(320, startSize.w + dx)}px`;
-  canvasContainer.value.style.height = `${Math.max(240, startSize.h + dy)}px`;
-  // recentre page without changing zoom while dragging
+  const bg = pageBackgroundConfig.value;
+  const ratio = bg.height / bg.width;
+  const startInnerW = startSize.w - containerPad * 2;
+  const startInnerH = startSize.h - containerPad * 2;
+  let newInnerW = startInnerW + dx;
+  let newInnerH = startInnerH + dy;
+  // constrain to page aspect
+  if (Math.abs(dx) >= Math.abs(dy)) newInnerH = newInnerW * ratio; else newInnerW = newInnerH / ratio;
+  const newW = Math.max(240, newInnerW + containerPad * 2);
+  const newH = Math.max(240, newInnerH + containerPad * 2);
+  canvasContainer.value.style.width = `${newW}px`;
+  canvasContainer.value.style.height = `${newH}px`;
+  // compute scale to fit page into inner box and apply scale (zoom-like behavior)
   const stage = stageRef.value?.getNode?.();
-  if (stage) centerStage(stage, stage.scaleX() || 1);
+  if (stage) {
+    const innerW = newW - containerPad * 2;
+    const innerH = newH - containerPad * 2;
+    const scale = Math.min(innerW / bg.width, innerH / bg.height);
+    stage.scale({ x: scale, y: scale });
+    centerStage(stage, scale);
+  }
 }
 function endResize() {
   isResizing = false;

@@ -35,17 +35,27 @@
             <span class="template-info">{{ projectStore.currentProject.template.name }}</span>
           </div>
         </div>
+        <div class="header-center">
+          <RssAudioPlayer />
+        </div>
         
         <div class="header-right">
-          <button @click="toggleTheme" class="header-button icon-only" :title="`Switch to ${theme==='dark'?'Light':'Dark'} Theme`">
+          <button v-if="isMobile" @click="uiStore.togglePageList()" class="header-button icon-only" title="Toggle Pages" aria-label="Toggle Pages">
+            <Sidebar :size="16" />
+          </button>
+          <button v-if="isMobile" @click="uiStore.toggleProperties()" class="header-button icon-only" title="Toggle Properties" aria-label="Toggle Properties">
+            <Sliders :size="16" />
+          </button>
+          <!-- <button @click="toggleTheme" class="header-button icon-only" :title="`Switch to ${theme==='dark'?'Light':'Dark'} Theme`">
             <Sun v-if="theme==='dark'" :size="16" />
             <Moon v-else :size="16" />
-          </button>
+          </button> -->
           <a href="https://github.com/virgilvox/zine-maker" target="_blank" rel="noopener noreferrer" class="header-button" title="GitHub Repository">
             <Github :size="16" />
             <span>GitHub</span>
           </a>
-          <button @click="manualSave" class="header-button" :disabled="saving" title="Save project">
+          <button @click="manualSave" class="header-button" :disabled="saving" title="Save project" aria-label="Save">
+            <Save :size="16" />
             <span v-if="saving">Saving…</span>
             <span v-else>Save</span>
           </button>
@@ -59,6 +69,9 @@
           </button>
         </div>
       </header>
+
+      <!-- Mobile backdrop for panels -->
+      <div v-if="isMobile && (uiStore.showPageList || uiStore.showProperties)" class="panel-backdrop" @click="closeMobilePanels" />
 
       <div class="app-main">
         <PageList v-if="uiStore.showPageList" class="sidebar" />
@@ -78,10 +91,11 @@ import PropertiesPanel from '@/components/properties/PropertiesPanel.vue';
 import PageList from '@/components/PageList.vue';
 import ImageUploadModal from '@/components/ImageUploadModal.vue';
 import ExportModal from '@/components/ExportModal.vue';
+import RssAudioPlayer from '@/components/RssAudioPlayer.vue';
 import { useProjectStore } from '@/stores/project';
 import { useUIStore } from '@/stores/ui';
 import { useToolsStore } from '@/stores/tools';
-import { FilePlus, Sun, Moon, FolderOpen, Github } from 'lucide-vue-next';
+import { FilePlus, FolderOpen, Github, Save, Sidebar, Sliders } from 'lucide-vue-next';
 // @ts-ignore - Vue SFC type shim might be missing in this project setup
 import ProjectsModal from '@/components/ProjectsModal.vue';
 import { useAssetStore } from '@/stores/assetStore';
@@ -93,8 +107,10 @@ const toolsStore = useToolsStore();
 const assetStore = useAssetStore();
 
 const theme = ref<'light'|'dark'>( (localStorage.getItem('theme') as any) || 'light');
+const isMobile = ref(false);
+function updateIsMobile() { isMobile.value = window.matchMedia('(max-width: 900px)').matches; }
 function applyTheme() { document.documentElement.setAttribute('data-theme', theme.value); }
-function toggleTheme(){ theme.value = theme.value==='dark' ? 'light' : 'dark'; localStorage.setItem('theme', theme.value); applyTheme(); }
+// function toggleTheme(){ theme.value = theme.value==='dark' ? 'light' : 'dark'; localStorage.setItem('theme', theme.value); applyTheme(); }
 
 const saving = ref(false);
 async function manualSave() {
@@ -110,6 +126,8 @@ onMounted(async () => {
   setupKeyboardShortcuts();
   await assetStore.initDB();
   applyTheme();
+  updateIsMobile();
+  window.addEventListener('resize', updateIsMobile);
   
   // Attempt to load the last open project
   const lastProjectId = getLastOpenProjectId();
@@ -129,6 +147,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   cleanupKeyboardShortcuts();
+  window.removeEventListener('resize', updateIsMobile);
 });
 
 function setupKeyboardShortcuts(): void {
@@ -217,6 +236,12 @@ function handleKeyDown(event: KeyboardEvent): void {
   }
 }
 
+function closeMobilePanels(): void {
+  if (!isMobile.value) return;
+  uiStore.showPageList = false;
+  uiStore.showProperties = false;
+}
+
 async function addImageToCanvas(assetId: number) {
   const file = await assetStore.getAsset(assetId);
   if (!file) return;
@@ -277,12 +302,15 @@ body {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   height: 64px;
   flex-shrink: 0;
+  gap: 12px;
+  flex-wrap: nowrap;
 }
 
 .header-left {
   display: flex;
   align-items: center;
   gap: 1.5rem;
+  flex: 0 0 auto;
 }
 
 .header-left h1 {
@@ -300,6 +328,8 @@ body {
 .project-name {
   font-weight: 500;
   color: var(--ui-ink);
+  /* More aggressive fluid scaling: min 12px, scales with viewport, max 18px */
+  font-size: clamp(0.75rem, 1.8vw, 1.125rem);
 }
 
 .template-info {
@@ -310,6 +340,16 @@ body {
 .header-right {
   display: flex;
   gap: 1rem;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+
+.header-center {
+  display: flex;
+  flex: 1 1 0;
+  justify-content: center;
+  align-items: center;
+  min-width: 160px;
 }
 
 .header-button {
@@ -324,6 +364,7 @@ body {
   transition: all 0.2s ease;
   font-size: 0.9rem;
   color: var(--ui-ink);
+  white-space: nowrap;
 }
 .header-button.icon-only { padding: 0.5rem; }
 .header-button--red { 
@@ -355,6 +396,13 @@ body {
   border-color: var(--border);
 }
 
+/* Responsive: collapse header button text to icons on smaller widths */
+@media (max-width: 1200px) {
+  .app-header .header-right .header-button span { display: none; }
+  .app-header .header-right .header-button { padding: 0.5rem; }
+  .app-header .header-left .project-info { display: none; }
+}
+
 .app-main {
   flex: 1;
   display: flex;
@@ -379,6 +427,28 @@ body {
 .properties {
   width: 280px;
   flex-shrink: 0;
+}
+
+/* Mobile responsive layout */
+@media (max-width: 900px) {
+  .app-main { position: relative; }
+  .editor { flex: 1 1 auto; }
+  .sidebar, .properties {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: var(--panel);
+    z-index: 1000;
+    height: calc(100vh - 64px);
+    box-shadow: 0 0 20px rgba(0,0,0,.2);
+  }
+  .sidebar { left: 0; width: min(80vw, 320px); transform: translateX(-100%); transition: transform .2s ease; }
+  .properties { right: 0; width: min(80vw, 360px); transform: translateX(100%); transition: transform .2s ease; }
+  .zine-maker .sidebar[style], .zine-maker .properties[style] { /* keep styles minimal */ }
+  /* When visible via v-if, slide in (we use v-if already; ensure visible panels are translated in) */
+  .sidebar { transform: translateX(0%); }
+  .properties { transform: translateX(0%); }
+  .panel-backdrop { position: fixed; inset: 64px 0 0 0; background: rgba(0,0,0,.35); z-index: 900; }
 }
 
 .notice-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 1200; }

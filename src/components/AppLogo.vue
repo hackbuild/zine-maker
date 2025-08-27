@@ -1,36 +1,42 @@
 <template>
   <div class="app-logo" :style="wrapperStyle">
-    <img src="@/assets/zeenster-sheet.png" alt="Zeenster" class="logo-sprite" :style="spriteStyle" />
+    <img :src="logoSrc" alt="Zeenster" class="logo" />
   </div>
 </template>
 
 <script setup lang="ts">
-// Crops the first logo from the sheet using CSS object-position
-// Tweak offsets if the source sheet changes
-const width = 140; // rendered width
-const height = 28; // rendered height
-// Sprite source area (px in the sheet)
-const crop = { x: 430, y: 205, w: 420, h: 120 };
+import { onMounted, type CSSProperties } from 'vue';
+// direct assets (no cropping)
+// @ts-ignore - Vite will inline/serve the image
+import logoSrc from '@/assets/logo-header.png';
+// @ts-ignore
+import pressSrc from '@/assets/press.png';
 
-const wrapperStyle = {
+const width = 140;
+const height = 28;
+
+const wrapperStyle: CSSProperties = {
   width: `${width}px`,
   height: `${height}px`,
   overflow: 'hidden',
   display: 'inline-block'
 };
 
-const spriteStyle = {
-  width: '1000px', // large enough to retain quality; scales down
-  height: 'auto',
-  objectFit: 'none',
-  objectPosition: `-${crop.x}px -${crop.y}px`,
-  transform: `scale(${width / crop.w}, ${height / crop.h})`,
-  transformOrigin: 'top left'
-};
+onMounted(() => {
+  // Set favicon to the press icon
+  let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
+  }
+  link.type = 'image/png';
+  link.href = pressSrc as unknown as string;
+});
 </script>
 
 <style scoped>
-.logo-sprite { display: block; }
+.logo { display: block; width: 100%; height: 100%; object-fit: contain; }
 </style>
 
 

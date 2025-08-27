@@ -10,7 +10,7 @@
   </svg>
 </template>
 <script setup lang="ts">
-const props = defineProps({ size:{type:[Number,String],default:120}, stroke:{type:String,default:'#111'}, fill:{type:String,default:'#111'} })
+defineProps({ size:{type:[Number,String],default:120}, stroke:{type:String,default:'#111'}, fill:{type:String,default:'#111'} })
 const noneFill = 'none'
 </script>
 

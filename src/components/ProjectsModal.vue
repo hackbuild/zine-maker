@@ -150,7 +150,7 @@ async function importAll(e: Event) {
 function toggleSamples() { showSamples.value = !showSamples.value; }
 
 async function loadSample(id: string) {
-  const { createSample, getSamples } = await import('@/utils/sampleZines');
+  const { createSample } = await import('@/utils/sampleZines');
   const project = createSample(id);
   if (!project) return;
   await saveProject(project);

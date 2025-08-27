@@ -10,7 +10,7 @@
   </svg>
 </template>
 <script setup lang="ts">
-const props = defineProps({
+defineProps({
   size:{type:[Number,String],default:100},
   stroke:{type:String,default:'#111'},
   fill:{type:String,default:'#111'},

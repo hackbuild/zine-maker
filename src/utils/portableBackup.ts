@@ -42,6 +42,62 @@ export async function importAll(payload: any): Promise<void> {
   await txP.done; await txA.done;
 }
 
+// Export a single project and only the assets it uses
+export async function exportProjectById(projectId: string): Promise<any> {
+  const db = await openDB(DB_NAME, 2);
+  const project: any = await db.get(PROJECTS, projectId);
+  if (!project) throw new Error('Project not found');
+
+  // Collect unique asset ids referenced by the project (image contents)
+  const assetIds = new Set<number>();
+  try {
+    (project.pages || []).forEach((p: any) => {
+      (p.content || []).forEach((c: any) => {
+        if (c?.type === 'image') {
+          const aid = c?.properties?.assetId;
+          if (typeof aid === 'number') assetIds.add(aid);
+        }
+      });
+    });
+  } catch {}
+
+  const assets: any[] = [];
+  for (const id of assetIds) {
+    const a: any = await db.get(ASSETS, id);
+    if (!a) continue;
+    const file: File | undefined = a?.file;
+    if (file) {
+      const b64 = await fileToBase64(file);
+      assets.push({ id, file: { name: file.name, type: file.type, dataUrl: b64 } });
+    } else {
+      assets.push(a);
+    }
+  }
+  return { project, assets };
+}
+
+// Import a single project (and optional serialized assets)
+export async function importProject(payload: any): Promise<void> {
+  const db = await openDB(DB_NAME, 2);
+  const txP = db.transaction(PROJECTS, 'readwrite');
+  await (txP.store as any).put(payload.project);
+  await txP.done;
+
+  if (Array.isArray(payload.assets) && payload.assets.length) {
+    const txA = db.transaction(ASSETS, 'readwrite');
+    for (const a of payload.assets) {
+      const f = a?.file;
+      if (f && f.dataUrl) {
+        const file = dataUrlToFile(f.dataUrl, f.name || 'asset');
+        await (txA.store as any).put({ id: a.id, file });
+      } else {
+        await (txA.store as any).put(a);
+      }
+    }
+    await txA.done;
+  }
+}
+
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

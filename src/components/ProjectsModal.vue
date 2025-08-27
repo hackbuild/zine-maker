@@ -7,9 +7,11 @@
       </header>
       <section class="modal-body">
         <div class="backup-bar">
-          <button class="btn" @click="exportAll">Export All Projects</button>
-          <button class="btn" @click="importInput?.click()">Import Projects</button>
+          <button class="btn" @click="exportAll">Download All Projects</button>
+          <button class="btn" @click="importInput?.click()">Upload All Projects</button>
           <input ref="importInput" type="file" accept="application/json" @change="importAll" style="display:none" />
+          <button class="btn" @click="importOneInput?.click()">Upload Single Project</button>
+          <input ref="importOneInput" type="file" accept="application/json" @change="importSingle" style="display:none" />
           <button class="btn" @click="toggleSamples">Browse Sample Zines</button>
           <button class="btn btn-danger" @click="openDeleteAll">Delete All</button>
         </div>
@@ -37,6 +39,9 @@
               <div class="meta">Updated {{ formatDate(project.modifiedAt) }}</div>
             </div>
             <div class="actions">
+              <button class="btn" @click="downloadProject(project)" title="Download project">
+                <Download :size="16" />
+              </button>
               <button class="btn" @click="openProject(project.id)">Open</button>
               <button class="btn" @click="onRename(project)">Rename</button>
               <button class="btn btn-danger" @click="onDelete(project.id)">Delete</button>
@@ -68,6 +73,7 @@ import { useUIStore } from '@/stores/ui';
 import { getAllProjects, loadProject, deleteProject, renameProject, saveProject } from '@/utils/persistence';
 import type { ZineProject } from '@/types';
 import { EncryptedLock, PrintBlocks } from '@/icons';
+import { Download } from 'lucide-vue-next';
 
 const emit = defineEmits<{ (e: 'close'): void }>();
 const uiStore = useUIStore();
@@ -76,6 +82,7 @@ const projectStore = useProjectStore();
 const projects = ref<ZineProject[]>([]);
 let onKey: ((e: KeyboardEvent) => void) | null = null;
 const importInput = ref<HTMLInputElement | null>(null);
+const importOneInput = ref<HTMLInputElement | null>(null);
 const showSamples = ref(false);
 const samples = ref<{ id: string; name: string; description: string; thumbnail: string }[]>([]);
 const showConfirm = ref(false);
@@ -145,6 +152,36 @@ async function importAll(e: Event) {
   } finally {
     if (importInput.value) importInput.value.value = '';
   }
+}
+
+async function importSingle(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const { importProject } = await import('@/utils/portableBackup');
+    await importProject(data);
+    await refresh();
+    alert('Project imported successfully.');
+  } catch (err) {
+    console.error(err);
+    alert('Import failed.');
+  } finally {
+    if (importOneInput.value) importOneInput.value.value = '';
+  }
+}
+
+async function downloadProject(project: ZineProject) {
+  const { exportProjectById } = await import('@/utils/portableBackup');
+  const data = await exportProjectById(project.id);
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${project.name.replace(/[^a-z0-9\-_.]+/gi,'_') || 'project'}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function toggleSamples() { showSamples.value = !showSamples.value; }

@@ -155,6 +155,7 @@ const scaleBy = 1.05;
 const containerPad = 40;
 
 const containerSize = ref<{ w: number; h: number }>({ w: 0, h: 0 });
+let resizeObserver: ResizeObserver | null = null;
 
 const stageConfig = computed(() => {
   const width = Math.max(10, containerSize.value.w || (pageBackgroundConfig.value.width + containerPad * 2));
@@ -684,6 +685,37 @@ onMounted(() => {
   try { layer.perfectDrawEnabled(false); } catch {}
 });
 
+// Ensure transformer handlers are attached even when the transformer is created after mount
+watch(
+  () => transformerRef.value?.getNode?.(),
+  (tr) => {
+    const layer = contentLayerRef.value?.getNode?.();
+    if (!tr || !layer) return;
+    try { tr.off('transformend'); } catch {}
+    tr.on('transformend', () => {
+      const nodes = tr.nodes() as Konva.Node[];
+      nodes.forEach((node) => {
+        const id = node.id();
+        const rotation = node.rotation();
+        let width = node.width() as number;
+        let height = node.height() as number;
+        const scaleX = node.scaleX();
+        const scaleY = node.scaleY();
+        if (node.className !== 'Line' && node.className !== 'Group') {
+          width = width * scaleX;
+          height = height * scaleY;
+          node.scale({ x: 1, y: 1 });
+        }
+        const pos = node.position();
+        projectStore.updateContent(id, { x: pos.x - pageBackgroundConfig.value.x, y: pos.y - pageBackgroundConfig.value.y, width, height, rotation });
+      });
+      layer.batchDraw();
+    });
+    try { layer.perfectDrawEnabled(false); } catch {}
+  },
+  { immediate: true }
+);
+
 const transformerConfig = { 
   rotateAnchorOffset: 20, 
   enabledAnchors: ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center'] 
@@ -950,6 +982,16 @@ onMounted(() => {
     if (canvasContainer.value) {
       const rect = canvasContainer.value.getBoundingClientRect();
       containerSize.value = { w: rect.width, h: rect.height };
+      // Observe container size to keep stage sized with container
+      try {
+        resizeObserver = new ResizeObserver((entries) => {
+          const r = entries[0]?.contentRect;
+          if (!r) return;
+          containerSize.value = { w: r.width, h: r.height };
+          fitToContainer();
+        });
+        resizeObserver.observe(canvasContainer.value);
+      } catch {}
     }
     fitToContainer();
   });
@@ -958,6 +1000,8 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeyDown);
   window.removeEventListener('keyup', onKeyUp);
+  try { if (resizeObserver && canvasContainer.value) resizeObserver.unobserve(canvasContainer.value); } catch {}
+  resizeObserver = null;
 });
 
 let isResizing = false;
@@ -988,6 +1032,8 @@ function onResizeMove(e: MouseEvent) {
   const newH = Math.max(240, newInnerH + containerPad * 2);
   canvasContainer.value.style.width = `${newW}px`;
   canvasContainer.value.style.height = `${newH}px`;
+  // Keep containerSize reactive so stage resizes to fill container
+  containerSize.value = { w: newW, h: newH };
   // compute scale to fit page into inner box and apply scale (zoom-like behavior)
   const stage = stageRef.value?.getNode?.();
   if (stage) {

@@ -439,7 +439,7 @@ function onNodeMouseDown(id: string, e: any) {
   if (e?.evt) e.evt.stopPropagation();
 }
 
-function onNodeDragMove(id: string, e: any) {
+function onNodeDragMove(_id: string, e: any) {
   // When a selected node moves, move other selected nodes by same delta (multi-drag)
   const node = e.target as Konva.Node;
   const pos = node.position();
@@ -492,16 +492,28 @@ function onDragEnd(id: string, e: any) {
     const { x, y } = node.position();
     projectStore.updateContent(id, { x: x - pageBackgroundConfig.value.x, y: y - pageBackgroundConfig.value.y });
   }
+  // Re-enable draggable if it was disabled at mousedown
+  if ((node as any)._wasDraggable !== undefined) {
+    node.draggable((node as any)._wasDraggable);
+    (node as any)._wasDraggable = undefined;
+  }
 }
 
 // Overlay drag to move selection when clicking inside selection bounds (not on a node)
 let overlayDragStart: { x: number; y: number } | null = null;
+let groupInitialPos: Record<string, { x: number; y: number }> = {};
+let overlayRaf: number | null = null;
 function onOverlayMouseDown(e: any) {
   const stage = stageRef.value?.getNode?.();
   if (!stage) return;
   const p = stage.getPointerPosition();
   if (!p) return;
   overlayDragStart = { x: p.x, y: p.y };
+  // Snapshot initial positions for stable drag deltas
+  const tr = transformerRef.value?.getNode?.();
+  const nodes = tr ? (tr.nodes() as Konva.Node[]) : [];
+  groupInitialPos = {};
+  nodes.forEach((n) => { const pos = n.position(); groupInitialPos[n.id()] = { x: pos.x, y: pos.y }; });
   if (e?.evt) e.evt.stopPropagation();
 }
 function onOverlayMouseMove(e: any) {
@@ -513,14 +525,17 @@ function onOverlayMouseMove(e: any) {
   if (!p) return;
   const dx = p.x - overlayDragStart.x;
   const dy = p.y - overlayDragStart.y;
-  overlayDragStart = { x: p.x, y: p.y };
   const tr = transformerRef.value?.getNode?.();
   const nodes = tr ? (tr.nodes() as Konva.Node[]) : [];
-  nodes.forEach((n) => {
-    const pos = n.position();
-    n.position({ x: pos.x + dx, y: pos.y + dy });
+  if (overlayRaf !== null) { if (e?.evt) e.evt.stopPropagation(); return; }
+  overlayRaf = requestAnimationFrame(() => {
+    nodes.forEach((n) => {
+      const base = groupInitialPos[n.id()];
+      if (base) n.position({ x: base.x + dx, y: base.y + dy });
+    });
+    layer.batchDraw();
+    overlayRaf = null;
   });
-  layer.batchDraw();
   if (e?.evt) e.evt.stopPropagation();
 }
 function onOverlayMouseUp(e: any) {
@@ -531,10 +546,26 @@ function onOverlayMouseUp(e: any) {
   const nodes = tr ? (tr.nodes() as Konva.Node[]) : [];
   nodes.forEach((n) => {
     const id = n.id();
+    if (n.className === 'Line') {
+      // For drawings (Line or grouped lines), compute new min point from points
+      try {
+        const points = (n as any).points?.() as number[] | undefined;
+        if (points && points.length >= 4) {
+          const xs = points.filter((_, i) => i % 2 === 0);
+          const ys = points.filter((_, i) => i % 2 === 1);
+          const minX = Math.min(...xs);
+          const minY = Math.min(...ys);
+          projectStore.updateContent(id, { x: minX - pageBackgroundConfig.value.x, y: minY - pageBackgroundConfig.value.y });
+          return;
+        }
+      } catch {}
+    }
     const pos = n.position();
     projectStore.updateContent(id, { x: pos.x - pageBackgroundConfig.value.x, y: pos.y - pageBackgroundConfig.value.y });
   });
   overlayDragStart = null;
+  groupInitialPos = {};
+  if (overlayRaf) { cancelAnimationFrame(overlayRaf); overlayRaf = null; }
   if (e?.evt) e.evt.stopPropagation();
 }
 
@@ -650,6 +681,7 @@ onMounted(() => {
     });
     layer.batchDraw();
   });
+  try { layer.perfectDrawEnabled(false); } catch {}
 });
 
 const transformerConfig = { 

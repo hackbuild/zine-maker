@@ -54,7 +54,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useTemplatesStore } from '@/stores/templates';
 import { useProjectStore } from '@/stores/project';
 import { useUIStore } from '@/stores/ui';
@@ -69,15 +69,17 @@ const selectedTemplate = ref<ZineTemplate | null>(null);
 const projectName = ref('My Zine');
 const recentProjects = ref<ZineProject[]>([]);
 
+let onKey: ((e: KeyboardEvent) => void) | null = null;
+
 onMounted(async () => {
   recentProjects.value = await getAllProjects();
   // Sort by most recently modified
   recentProjects.value.sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime());
-  const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') uiStore.hideTemplateSelector(); };
+  onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') uiStore.hideTemplateSelector(); };
   window.addEventListener('keydown', onKey);
-  // cleanup
-  onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
 });
+
+onUnmounted(() => { if (onKey) window.removeEventListener('keydown', onKey); });
 
 function selectTemplate(template: ZineTemplate): void {
   selectedTemplate.value = template;

@@ -63,6 +63,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useProjectStore } from '@/stores/project';
 import type { ZineContent, TextProperties, ShapeProperties, ImageProperties, DrawingProperties } from '@/types';
 import ColorPicker from './ColorPicker.vue';
 
@@ -76,6 +77,7 @@ interface Emits {
 
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
+const projectStore = useProjectStore();
 
 const contentTypeCounts = computed(() => {
   const counts: Record<string, number> = {};
@@ -158,8 +160,8 @@ function updateCommonOpacity(event: Event) {
 }
 
 function groupItems() {
-  // This would implement grouping functionality
-  console.log('Group items functionality would be implemented here');
+  if (props.content.length < 2) return;
+  projectStore.groupSelected();
 }
 
 function distributeHorizontally() {

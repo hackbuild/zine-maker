@@ -7,6 +7,7 @@ export interface ExportOptions {
   showFoldMarks?: boolean;
   showCutMarks?: boolean;
   pixelRatio?: number;
+  bleed?: number; // optional sheet bleed in points (72dpi). default 0
 }
 
 export type GetAssetFn = (id: number) => Promise<File | undefined>;
@@ -30,7 +31,7 @@ export async function exportZineForTemplate(
   document.body.appendChild(tempContainer);
 
   try {
-    async function renderSide(side: 'front' | 'back', positions: any[]): Promise<string> {
+    async function renderSide(_side: 'front' | 'back', positions: any[]): Promise<string> {
       const stage = new Konva.Stage({ container: tempContainer, width, height });
       const layer = new Konva.Layer();
       stage.add(layer);
@@ -106,24 +107,27 @@ export async function exportZineForTemplate(
     const images: string[] = [];
     if (template.format === 'booklet') {
       // Booklet: build sheets from page count, pairing outer to inner.
-      // Each sheet has two pages per side: [left|right].
+      // Each sheet has two pages per side: [left|right]. Use the exact
+      // template page count; do not pad with blanks.
       const pageCount = project.pages.length;
+      const totalPages = pageCount;
       const sheets = Math.ceil(pageCount / 4);
+
       for (let i = 0; i < sheets; i++) {
-        const leftFront = pageCount - (2 * i);
+        const leftFront = totalPages - (2 * i);
         const rightFront = 1 + (2 * i);
         const leftBack = 2 + (2 * i);
-        const rightBack = pageCount - 1 - (2 * i);
+        const rightBack = totalPages - 1 - (2 * i);
 
         const frontPositions = [
           { pageNumber: leftFront, x: 0, y: 0, width: width / 2, height: height, rotation: 0, isFlipped: false },
           { pageNumber: rightFront, x: width / 2, y: 0, width: width / 2, height: height, rotation: 0, isFlipped: false }
-        ].filter(p => p.pageNumber >= 1 && p.pageNumber <= pageCount);
+        ];
 
         const backPositions = [
           { pageNumber: leftBack, x: 0, y: 0, width: width / 2, height: height, rotation: 0, isFlipped: false },
           { pageNumber: rightBack, x: width / 2, y: 0, width: width / 2, height: height, rotation: 0, isFlipped: false }
-        ].filter(p => p.pageNumber >= 1 && p.pageNumber <= pageCount);
+        ];
 
         const sheetFront = await renderSide('front', frontPositions as any);
         const sheetBack = await renderSide('back', backPositions as any);
@@ -137,6 +141,31 @@ export async function exportZineForTemplate(
       // Single sheet, single side (slit zine is one-sided)
       const front = await renderSide('front', template.printLayout.pagePositions);
       images.push(front);
+    } else if (template.format === 'flipbook') {
+      // Flipbook: generate sheets of two pages per side. We iterate over pages in pairs
+      // and map them to left/right per side according to template.printLayout positions.
+      const pageCount = project.pages.length;
+      const positionsFront = template.printLayout.pagePositions.filter(p => p.side === 'front');
+      const positionsBack = template.printLayout.pagePositions.filter(p => p.side === 'back');
+      // For N pages, we need ceil(N/2) sheets. For sheet i (0-based):
+      // front: [2i+2, 2i+1], back: [2i+3, 2i+4]
+      const sheets = Math.ceil(pageCount / 2);
+      for (let i = 0; i < sheets; i++) {
+        const f1 = 2 * i + 2;
+        const f2 = 2 * i + 1;
+        const b1 = 2 * i + 3;
+        const b2 = 2 * i + 4;
+        const fp = [
+          { ...positionsFront[0], pageNumber: f1 },
+          { ...positionsFront[1], pageNumber: f2 }
+        ].filter(p => p.pageNumber <= pageCount);
+        const bp = [
+          { ...positionsBack[0], pageNumber: b1 },
+          { ...positionsBack[1], pageNumber: b2 }
+        ].filter(p => p.pageNumber <= pageCount);
+        images.push(await renderSide('front', fp as any));
+        if (bp.length) images.push(await renderSide('back', bp as any));
+      }
     } else {
       // Fallback: single side
       const only = await renderSide('front', template.printLayout.pagePositions);

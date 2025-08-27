@@ -9,6 +9,7 @@ export const useProjectStore = defineStore('project', () => {
   const currentPageIndex = ref(0);
   const selectedContentIds = ref<string[]>([]);
   const isModified = ref(false);
+  const isSaving = ref(false);
 
   // History (Command-style)
   type HistoryEntry = { name?: string; undo: () => void; redo: () => void };
@@ -77,9 +78,11 @@ export const useProjectStore = defineStore('project', () => {
 
   // Auto-save watcher
   const debouncedSave = debounce((project: ZineProject) => {
-    saveProject(toRaw(project));
-    isModified.value = false;
-  }, 1000);
+    isSaving.value = true;
+    Promise.resolve(saveProject(toRaw(project)))
+      .then(() => { isModified.value = false; })
+      .finally(() => { isSaving.value = false; });
+  }, 600);
 
   watch(currentProject, (newValue) => {
     if (newValue && isModified.value) {
@@ -503,6 +506,17 @@ export const useProjectStore = defineStore('project', () => {
     });
   }
 
+  async function manualSave(): Promise<void> {
+    if (!currentProject.value) return;
+    isSaving.value = true;
+    try {
+      await saveProject(toRaw(currentProject.value));
+      isModified.value = false;
+    } finally {
+      isSaving.value = false;
+    }
+  }
+
   function getContentById(contentId: string): ZineContent | null {
     if (!currentPage.value) return null;
     return currentPage.value.content.find(c => c.id === contentId) || null;
@@ -536,6 +550,7 @@ export const useProjectStore = defineStore('project', () => {
     pageCount,
     selectedContentIds,
     isModified,
+    isSaving,
     // history API
     canUndo,
     canRedo,
@@ -559,6 +574,7 @@ export const useProjectStore = defineStore('project', () => {
     updatePageBackground,
     updateProjectMetadata,
     updateProjectName,
+    manualSave,
     getContentById,
     duplicateContent,
     exportProject

@@ -2,7 +2,7 @@
 
 import type { Component } from 'vue';
 
-export type ZineFormat = 'quarter-fold' | 'half-fold' | 'tri-fold' | 'booklet';
+export type ZineFormat = 'quarter-fold' | 'half-fold' | 'tri-fold' | 'booklet' | 'flipbook' | 'accordion';
 export type PageSize = 'letter' | 'a4' | 'legal' | 'tabloid';
 export type PageOrientation = 'portrait' | 'landscape';
 

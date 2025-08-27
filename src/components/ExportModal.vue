@@ -224,10 +224,9 @@ function downloadPdf() {
 }
 .png-image {
   display: block;
-  max-width: calc(100% - 8px);
-  max-height: calc(100% - 8px);
-  width: auto;
-  height: auto;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 .page-label {

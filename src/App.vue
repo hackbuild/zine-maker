@@ -17,11 +17,19 @@
     />
 
     <TemplateSelector v-if="uiStore.showTemplateSelector" />
+    <div v-if="uiStore.showStorageNotice" class="notice-overlay" @click.self="uiStore.closeStorageNotice()">
+      <div class="notice">
+        <h3>About Your Projects</h3>
+        <p>Your projects are saved in your browser (IndexedDB/localStorage). They are not stored in the cloud.</p>
+        <p>A browser reset or clearing site data will remove local projects. Consider exporting regularly.</p>
+        <button class="header-button header-button--red" @click="uiStore.closeStorageNotice()">Got it</button>
+      </div>
+    </div>
     
     <div v-else class="zine-maker">
       <header class="app-header">
         <div class="header-left">
-          <h1>Zine Maker</h1>
+          <AppLogo />
           <div v-if="projectStore.currentProject" class="project-info">
             <span class="project-name">{{ projectStore.currentProject.name }}</span>
             <span class="template-info">{{ projectStore.currentProject.template.name }}</span>
@@ -32,6 +40,10 @@
           <button @click="toggleTheme" class="header-button icon-only" :title="`Switch to ${theme==='dark'?'Light':'Dark'} Theme`">
             <Sun v-if="theme==='dark'" :size="16" />
             <Moon v-else :size="16" />
+          </button>
+          <button @click="manualSave" class="header-button" :disabled="saving" title="Save project">
+            <span v-if="saving">Saving…</span>
+            <span v-else>Save</span>
           </button>
           <button @click="uiStore.showTemplateSelectorModal()" class="header-button header-button--red" title="New Project">
             <FilePlus :size="16" />
@@ -56,6 +68,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue';
 import TemplateSelector from '@/components/TemplateSelector.vue';
+import AppLogo from '@/components/AppLogo.vue';
 import KonvaPageEditor from '@/components/KonvaPageEditor.vue';
 import PropertiesPanel from '@/components/properties/PropertiesPanel.vue';
 import PageList from '@/components/PageList.vue';
@@ -79,6 +92,16 @@ const theme = ref<'light'|'dark'>( (localStorage.getItem('theme') as any) || 'li
 function applyTheme() { document.documentElement.setAttribute('data-theme', theme.value); }
 function toggleTheme(){ theme.value = theme.value==='dark' ? 'light' : 'dark'; localStorage.setItem('theme', theme.value); applyTheme(); }
 
+const saving = ref(false);
+async function manualSave() {
+  saving.value = true;
+  try {
+    await projectStore.manualSave();
+  } finally {
+    saving.value = false;
+  }
+}
+
 onMounted(async () => {
   setupKeyboardShortcuts();
   await assetStore.initDB();
@@ -91,6 +114,11 @@ onMounted(async () => {
     if (project) {
       projectStore.loadProject(project);
       uiStore.hideTemplateSelector();
+      // First-time storage notice
+      if (!localStorage.getItem('zineMaker.storageNoticeShown')) {
+        uiStore.openStorageNotice();
+        localStorage.setItem('zineMaker.storageNoticeShown', '1');
+      }
     }
   }
 });
@@ -348,4 +376,10 @@ body {
   width: 280px;
   flex-shrink: 0;
 }
+
+.notice-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 1200; }
+.notice { background: var(--panel); border: 1.5px solid var(--border); border-radius: 12px; padding: 1.25rem; width: min(520px, 90vw); box-shadow: 4px 4px 0 #000; }
+.notice h3 { margin: 0 0 .5rem 0; }
+.notice p { margin: .25rem 0; color: var(--ui-ink); }
+.notice button { margin-top: .75rem; }
 </style>

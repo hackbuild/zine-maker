@@ -119,6 +119,7 @@
 import { computed } from 'vue';
 import type { ZineContent } from '@/types';
 import NumberInput from './NumberInput.vue';
+import { useProjectStore } from '@/stores/project';
 
 interface Props {
   content: ZineContent[];
@@ -130,6 +131,7 @@ interface Emits {
 
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
+const projectStore = useProjectStore();
 
 const transformData = computed(() => {
   if (props.content.length === 0) {
@@ -166,16 +168,33 @@ function updateRotation(event: Event) {
 }
 
 function bringToFront() {
-  if (props.content.length === 1) {
-    const maxZ = Math.max(...(props.content[0] as any).page?.content?.map((c: any) => c.zIndex) || [0]);
-    updateTransform('zIndex', maxZ + 1);
-  }
+  if (props.content.length !== 1) return;
+  const page = projectStore.currentPage;
+  if (!page) return;
+  const id = props.content[0].id;
+  const ordered = [...page.content]
+    .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
+    .map(c => c.id);
+  const idx = ordered.indexOf(id);
+  if (idx === -1) return;
+  ordered.splice(idx, 1);
+  ordered.push(id);
+  projectStore.reorderContent(ordered);
 }
 
 function sendToBack() {
-  if (props.content.length === 1) {
-    updateTransform('zIndex', 0);
-  }
+  if (props.content.length !== 1) return;
+  const page = projectStore.currentPage;
+  if (!page) return;
+  const id = props.content[0].id;
+  const ordered = [...page.content]
+    .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
+    .map(c => c.id);
+  const idx = ordered.indexOf(id);
+  if (idx === -1) return;
+  ordered.splice(idx, 1);
+  ordered.unshift(id);
+  projectStore.reorderContent(ordered);
 }
 
 function alignLeft() {

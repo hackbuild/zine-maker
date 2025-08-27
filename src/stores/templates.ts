@@ -55,43 +55,60 @@ export const useTemplatesStore = defineStore('templates', () => {
         ]
       }
     },
+    // removed outdated 'booklet-letter' per request
     {
-      id: 'booklet-letter',
-      name: 'Booklet (Letter)',
-      format: 'booklet',
+      id: 'accordion-16-letter',
+      name: 'Accordion 16 (Letter)',
+      format: 'accordion',
       pageSize: 'letter',
       orientation: 'landscape',
       pageCount: 16,
-      description: '16-page booklet using 4 letter-size sheets (folded in half, saddle-stitched).',
-      foldInstructions: 'Print double-sided flipping on the short edge. Stack in order, fold in half, staple at the spine.',
+      description: '16-page one-sheet cut-and-fold (accordion snake) on letter size',
+      foldInstructions: 'Print double-sided. Cut along indicated lines and fold accordion-style following the snake order.',
       printLayout: {
-        // Each sheet is 11x8.5 (landscape). We'll render sides separately by filtering on side.
         sheetWidth: 792,
         sheetHeight: 612,
         pagePositions: [
-          // Sheet 1 (outermost): Front: [16 | 1], Back: [2 | 15]
-          { pageNumber: 16, x: 0,   y: 0, width: 396, height: 612, rotation: 0, isFlipped: false, side: 'front' },
-          { pageNumber: 1,  x: 396, y: 0, width: 396, height: 612, rotation: 0, isFlipped: false, side: 'front' },
-          { pageNumber: 2,  x: 0,   y: 0, width: 396, height: 612, rotation: 0, isFlipped: false, side: 'back' },
-          { pageNumber: 15, x: 396, y: 0, width: 396, height: 612, rotation: 0, isFlipped: false, side: 'back' },
-          // Sheet 2: Front: [14 | 3], Back: [4 | 13]
-          { pageNumber: 14, x: 0,   y: 0, width: 396, height: 612, rotation: 0, isFlipped: false, side: 'front' },
-          { pageNumber: 3,  x: 396, y: 0, width: 396, height: 612, rotation: 0, isFlipped: false, side: 'front' },
-          { pageNumber: 4,  x: 0,   y: 0, width: 396, height: 612, rotation: 0, isFlipped: false, side: 'back' },
-          { pageNumber: 13, x: 396, y: 0, width: 396, height: 612, rotation: 0, isFlipped: false, side: 'back' },
-          // Sheet 3: Front: [12 | 5], Back: [6 | 11]
-          { pageNumber: 12, x: 0,   y: 0, width: 396, height: 612, rotation: 0, isFlipped: false, side: 'front' },
-          { pageNumber: 5,  x: 396, y: 0, width: 396, height: 612, rotation: 0, isFlipped: false, side: 'front' },
-          { pageNumber: 6,  x: 0,   y: 0, width: 396, height: 612, rotation: 0, isFlipped: false, side: 'back' },
-          { pageNumber: 11, x: 396, y: 0, width: 396, height: 612, rotation: 0, isFlipped: false, side: 'back' },
-          // Sheet 4 (innermost): Front: [10 | 7], Back: [8 | 9]
-          { pageNumber: 10, x: 0,   y: 0, width: 396, height: 612, rotation: 0, isFlipped: false, side: 'front' },
-          { pageNumber: 7,  x: 396, y: 0, width: 396, height: 612, rotation: 0, isFlipped: false, side: 'front' },
-          { pageNumber: 8,  x: 0,   y: 0, width: 396, height: 612, rotation: 0, isFlipped: false, side: 'back' },
-          { pageNumber: 9,  x: 396, y: 0, width: 396, height: 612, rotation: 0, isFlipped: false, side: 'back' }
+          // 4x4 grid; rotate portrait tiles into landscape slots
+          // Top row (was upside down) -> rotate 270
+          { pageNumber: 16, x:   0, y:   0, width: 198, height: 153, rotation: 270, isFlipped: false },
+          { pageNumber: 14, x: 198, y:   0, width: 198, height: 153, rotation: 270, isFlipped: false },
+          { pageNumber: 13, x: 396, y:   0, width: 198, height: 153, rotation: 270, isFlipped: false },
+          { pageNumber: 12, x: 594, y:   0, width: 198, height: 153, rotation: 270, isFlipped: false },
+          // Row 3 (upright) -> rotate 90
+          { pageNumber: 8,  x:   0, y: 153, width: 198, height: 153, rotation: 90, isFlipped: false },
+          { pageNumber: 9,  x: 198, y: 153, width: 198, height: 153, rotation: 90, isFlipped: false },
+          { pageNumber: 10, x: 396, y: 153, width: 198, height: 153, rotation: 90, isFlipped: false },
+          { pageNumber: 11, x: 594, y: 153, width: 198, height: 153, rotation: 90, isFlipped: false },
+          // Row 2 (upside down) -> rotate 270
+          { pageNumber: 7,  x:   0, y: 306, width: 198, height: 153, rotation: 270, isFlipped: false },
+          { pageNumber: 6,  x: 198, y: 306, width: 198, height: 153, rotation: 270, isFlipped: false },
+          { pageNumber: 5,  x: 396, y: 306, width: 198, height: 153, rotation: 270, isFlipped: false },
+          { pageNumber: 4,  x: 594, y: 306, width: 198, height: 153, rotation: 270, isFlipped: false },
+          // Bottom row (upright) -> rotate 90
+          { pageNumber: 1,  x:   0, y: 459, width: 198, height: 153, rotation: 90, isFlipped: false },
+          { pageNumber: 2,  x: 198, y: 459, width: 198, height: 153, rotation: 90, isFlipped: false },
+          { pageNumber: 3,  x: 396, y: 459, width: 198, height: 153, rotation: 90, isFlipped: false },
+          { pageNumber: 15, x: 594, y: 459, width: 198, height: 153, rotation: 90, isFlipped: false }
         ]
       },
-      // Canvas for a single booklet page (half of letter sheet when folded)
+      pageCanvas: { width: 153, height: 198 }
+    }
+    ,
+    {
+      id: 'booklet-half-letter-20',
+      name: 'Booklet (Half Letter, 20 pages)',
+      format: 'booklet',
+      pageSize: 'letter',
+      orientation: 'landscape',
+      pageCount: 20,
+      description: 'Saddle-stitched half-letter booklet; front cover is page 1, back cover page 20.',
+      foldInstructions: 'Print double-sided (flip on short edge). Fold and staple at the spine.',
+      printLayout: {
+        sheetWidth: 792,
+        sheetHeight: 612,
+        pagePositions: []
+      },
       pageCanvas: { width: 396, height: 612 }
     }
   ]);

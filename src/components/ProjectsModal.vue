@@ -6,6 +6,11 @@
         <h2 id="projectsTitle">Projects</h2>
       </header>
       <section class="modal-body">
+        <div class="backup-bar">
+          <button class="btn" @click="exportAll">Export All Projects</button>
+          <button class="btn" @click="importInput?.click()">Import Projects</button>
+          <input ref="importInput" type="file" accept="application/json" @change="importAll" style="display:none" />
+        </div>
         <ul class="projects-list">
           <li v-for="project in projects" :key="project.id" class="project-item">
             <div class="info">
@@ -26,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import { useProjectStore } from '@/stores/project';
 import { useUIStore } from '@/stores/ui';
 import { getAllProjects, loadProject, deleteProject, renameProject } from '@/utils/persistence';
@@ -37,6 +42,8 @@ const uiStore = useUIStore();
 const projectStore = useProjectStore();
 
 const projects = ref<ZineProject[]>([]);
+let onKey: ((e: KeyboardEvent) => void) | null = null;
+const importInput = ref<HTMLInputElement | null>(null);
 
 function close() { emit('close'); }
 
@@ -74,12 +81,43 @@ async function onRename(project: ZineProject) {
   await refresh();
 }
 
+async function exportAll() {
+  const { exportAll } = await import('@/utils/portableBackup');
+  const data = await exportAll();
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'zine-maker-backup.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function importAll(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const { importAll } = await import('@/utils/portableBackup');
+    await importAll(data);
+    await refresh();
+    alert('Imported successfully.');
+  } catch (err) {
+    console.error(err);
+    alert('Import failed.');
+  } finally {
+    if (importInput.value) importInput.value.value = '';
+  }
+}
+
 onMounted(() => {
   refresh();
-  const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+  onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
   window.addEventListener('keydown', onKey);
-  onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
 });
+
+onUnmounted(() => { if (onKey) window.removeEventListener('keydown', onKey); });
 </script>
 
 <style scoped>
@@ -94,6 +132,7 @@ onMounted(() => {
 .close-button { position: absolute; right: 12px; top: 12px; background: transparent; border: none; font-size: 20px; cursor: pointer; color: var(--ui-ink); }
 .close-button--red { background: var(--accent-red); color: #fff; width: 28px; height: 28px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--border); box-shadow: 2px 2px 0 #000; }
 
+.backup-bar { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
 .projects-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
 .project-item { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background: var(--surface); border: 1px solid var(--border-soft); border-radius: 8px; }
 .project-item .info .name { font-weight: 600; color: var(--ui-ink); }

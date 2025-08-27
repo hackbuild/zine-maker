@@ -1,197 +1,101 @@
 # Zine Maker
 
-A professional zine design tool built with Vue 3, Vite, and PixiJS 8. Create beautiful zines that can be printed and folded into booklets.
+Professional zine design tool built with Vue 3, Vite, Konva.js (via vue-konva), and Pinia. Design page-by-page, manage layers, group and transform items, and export print-ready spreads for common zine formats.
 
-## Features
+## Highlights
 
-- **Professional Design Tools**: Image upload, text editing, drawing, and shape creation
-- **Zine Layout Support**: 8-page zine layout with proper page mapping
-- **Real-time Canvas**: PixiJS-powered canvas with smooth performance
-- **Responsive Design**: Works on desktop and mobile devices
-- **Theme Support**: Light and dark themes with easy customization
-- **Export Options**: PNG, JPEG, and PDF export with print-ready output
-- **Keyboard Shortcuts**: Professional-grade shortcuts for power users
+- **Three‑pane editor**: Pages | Canvas | Properties
+- **Design tools**: Select, Text, Image, Shape, Draw, Pan, Zoom
+- **Smart selection**: marquee, multi-select, grouping, isolation mode, transformer handles
+- **Layers panel**: reorder, lock, toggle visibility, group/ungroup
+- **Templates & imposition**: quarter‑fold (slit zine), half‑fold, booklet (multi‑sheet) with front/back sides
+- **Export**: hi‑res PNG sides and multi‑page PDF (jsPDF)
+- **Persistence**: IndexedDB projects/assets + Projects modal
+- **Theming**: CSS custom properties and dark mode
 
 ## Tech Stack
 
-- **Frontend**: Vue 3 with Composition API
-- **Build Tool**: Vite
-- **Graphics Engine**: PixiJS 8
-- **State Management**: Pinia
-- **Styling**: CSS Custom Properties with utility classes
-- **TypeScript**: Full type safety
-- **Responsive Design**: Mobile-first approach
+- **Framework**: Vue 3 + Vite + TypeScript
+- **Canvas**: Konva.js + vue-konva
+- **State**: Pinia
+- **Persistence**: idb (IndexedDB)
+- **PDF**: jsPDF
+- **Utilities**: @vueuse/core, lodash-es, lucide-vue-next
 
-## Getting Started
+## Quick Start
 
-### Prerequisites
+Prereqs: Node.js 18+, npm or pnpm
 
-- Node.js 16+ 
-- npm or yarn
-
-### Installation
-
-1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/virgilvox/zine-maker.git
 cd zine-maker
-```
-
-2. Install dependencies:
-```bash
 npm install
-```
-
-3. Start the development server:
-```bash
 npm run dev
+# open http://localhost:5173
 ```
 
-4. Open your browser and navigate to `http://localhost:5173`
-
-### Building for Production
+Production build:
 
 ```bash
 npm run build
 ```
 
-The built files will be in the `dist` directory.
+## Documentation
 
-## Usage
+Comprehensive docs live in the `docs/` folder:
 
-### Creating a Zine
+- docs/01-introduction.md
+- docs/02-getting-started.md
+- docs/03-user-guide.md
+- docs/04-editor-and-tools.md
+- docs/05-templates-and-export.md
+- docs/06-persistence-and-projects.md
+- docs/07-api-reference.md
+- docs/08-contributing.md
+- docs/09-faq.md
+- docs/10-troubleshooting.md
 
-1. **Choose a Tool**: Select from the toolbar (Select, Image, Text, Draw, Shape, Zoom)
-2. **Add Content**: Click on the canvas to add content
-3. **Customize**: Use the sidebar to adjust properties
-4. **Arrange**: Drag and drop content to position it correctly
-5. **Export**: Use the export options to generate a print-ready file
+Start with Getting Started and the User Guide:
 
-### Keyboard Shortcuts
+- Getting Started: docs/02-getting-started.md
+- User Guide: docs/03-user-guide.md
 
-- `V` - Select Tool
-- `I` - Image Tool  
-- `T` - Text Tool
-- `P` - Draw Tool
-- `S` - Shape Tool
-- `Z` - Zoom Tool
-- `Ctrl+N` - New Project
-- `Ctrl+S` - Save Project
-- `Ctrl+Z` - Undo
-- `Ctrl+Shift+Z` - Redo
-- `Ctrl+A` - Select All
-- `Delete` - Delete Selected
-
-### Zine Layout
-
-The tool creates 8-page zines with the following layout:
-
-```
-┌─────────┬─────────┐
-│    1    │  Front  │
-├─────────┼─────────┤
-│    2    │   Back  │
-├─────────┼─────────┤
-│    3    │    6    │
-├─────────┼─────────┤
-│    4    │    5    │
-└─────────┴─────────┘
-```
-
-When printed and folded, this creates a proper zine booklet.
-
-## Project Structure
+## Project Structure (key files)
 
 ```
 src/
-├── components/          # Vue components
-│   ├── AppHeader.vue   # Application header
-│   ├── AppSidebar.vue  # Settings sidebar
-│   ├── AppToolbar.vue  # Tool toolbar
-│   ├── AppCanvas.vue   # Main canvas component
-│   └── WelcomeModal.vue # Welcome modal
-├── stores/             # Pinia stores
-│   ├── project.ts      # Project state management
-│   ├── ui.ts          # UI state management
-│   └── tools.ts       # Tools state management
-├── styles/             # CSS styles
-│   ├── variables.css   # Design system variables
-│   ├── base.css       # Base styles
-│   ├── components.css # Component styles
-│   └── main.css       # Main style imports
-├── types/              # TypeScript types
-│   └── index.ts       # Type definitions
-├── App.vue            # Main app component
-└── main.ts            # App entry point
+├── components/
+│   ├── KonvaPageEditor.vue        # Canvas editor (selection, tools, transformer)
+│   ├── PageList.vue               # Pages sidebar + export action
+│   ├── properties/PropertiesPanel.vue
+│   ├── ProjectsModal.vue          # Project manager (open/rename/delete)
+│   └── ExportModal.vue            # PNG/PDF preview + download
+├── stores/
+│   ├── project.ts                 # Project/pages/content, history, grouping
+│   ├── templates.ts               # Zine templates (formats, sizes)
+│   ├── tools.ts                   # Active tool, drawing settings
+│   └── ui.ts                      # UI state (panels, modals, export settings)
+├── composables/
+│   └── useZineExport.ts           # Imposition + PNG/PDF export
+├── utils/
+│   └── persistence.ts             # IndexedDB with idb
+├── styles/
+│   └── themes.css                 # Theme tokens
+└── types/index.ts                 # Core types
 ```
 
-## Architecture
+## Keyboard Shortcuts
 
-### Component Design
-
-- **Modular Components**: Each component has a single responsibility
-- **Reusable**: Components can be easily used in other projects
-- **Props Interface**: Clear props and events for component communication
-- **Scoped Styles**: Component-specific styles that don't leak
-
-### State Management
-
-- **Pinia Stores**: Centralized state management with TypeScript
-- **Separation of Concerns**: Different stores for different domains
-- **Reactive**: Automatic reactivity with Vue 3
-- **Persistent**: User preferences saved to localStorage
-
-### Styling System
-
-- **CSS Custom Properties**: Centralized design tokens
-- **Utility Classes**: Reusable utility classes for common patterns
-- **Theme Support**: Easy theme switching and customization
-- **Responsive**: Mobile-first responsive design
-
-## Customization
-
-### Themes
-
-The application supports light and dark themes. To customize:
-
-1. Edit `src/styles/variables.css`
-2. Modify the CSS custom properties
-3. Add new theme variants as needed
-
-### Adding New Tools
-
-1. Add tool definition to `src/stores/tools.ts`
-2. Create tool component if needed
-3. Add tool logic to `src/components/AppCanvas.vue`
-4. Update toolbar in `src/components/AppToolbar.vue`
-
-### Styling
-
-The design system uses CSS custom properties for easy theming:
-
-```css
-:root {
-  --color-primary: #2563eb;
-  --color-bg-primary: #ffffff;
-  --spacing-md: 1rem;
-  /* ... more variables */
-}
-```
+- V Select, T Text, I Image, S Shape, D Draw, H Pan, Z Zoom
+- ⌘/Ctrl+Z Undo, ⌘/Ctrl+Shift+Z Redo
+- Delete Remove selected
+- Space Pan while held
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+See docs/08-contributing.md.
 
 ## License
 
-This project is licensed under the MIT License.
+MIT
 
-## Acknowledgments
-
-- Built with [Vue 3](https://vuejs.org/)
-- Graphics powered by [PixiJS](https://pixijs.com/)
-- Icons and design inspiration from various sources

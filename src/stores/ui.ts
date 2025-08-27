@@ -21,6 +21,7 @@ export const useUIStore = defineStore('ui', () => {
   const showPageNumbers = ref(true);
   const showFoldMarks = ref(false);
   const showCutMarks = ref(false);
+  const showStorageNotice = ref(false);
 
   function hideTemplateSelector(): void {
     showTemplateSelector.value = false;
@@ -64,6 +65,13 @@ export const useUIStore = defineStore('ui', () => {
     propertiesCollapsed.value = !propertiesCollapsed.value;
   }
 
+  function openStorageNotice(): void {
+    showStorageNotice.value = true;
+  }
+  function closeStorageNotice(): void {
+    showStorageNotice.value = false;
+  }
+
   return {
     showTemplateSelector,
     showPageList,
@@ -84,6 +92,7 @@ export const useUIStore = defineStore('ui', () => {
     showPageNumbers,
     showFoldMarks,
     showCutMarks,
+    showStorageNotice,
     hideTemplateSelector,
     showTemplateSelectorModal,
     openProjectsModal,
@@ -94,6 +103,8 @@ export const useUIStore = defineStore('ui', () => {
     setCanvasOffset,
     requestFit,
     togglePageListCollapsed,
-    togglePropertiesCollapsed
+    togglePropertiesCollapsed,
+    openStorageNotice,
+    closeStorageNotice
   };
 });

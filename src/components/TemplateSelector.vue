@@ -19,6 +19,28 @@
         </div>
 
         <div class="templates-column">
+          <div v-if="showSamplesOnboarding" class="samples-onboarding">
+            <h4>Start from a ready-made sample</h4>
+            <div class="samples-grid">
+              <div class="sample-card">
+                <div class="thumb icon-thumb"><EncryptedLock :size="72" /></div>
+                <div class="sample-meta">
+                  <div class="name">Lock It Down</div>
+                  <div class="desc">Digital Security & Privacy Primer</div>
+                </div>
+                <button class="btn" @click="createFromSample('security-half-fold')">Create from sample</button>
+              </div>
+              <div class="sample-card">
+                <div class="thumb icon-thumb"><PrintBlocks :size="72" /></div>
+                <div class="sample-meta">
+                  <div class="name">Zines: Voices Underground</div>
+                  <div class="desc">DIY culture, archiving & distribution</div>
+                </div>
+                <button class="btn" @click="createFromSample('oss-mini')">Create from sample</button>
+              </div>
+            </div>
+          </div>
+
           <label for="projectName" class="field-label">Project name</label>
           <div class="name-row">
             <input id="projectName" class="project-name-input" v-model="projectName" placeholder="e.g. My Zine" />
@@ -63,6 +85,7 @@ import { useProjectStore } from '@/stores/project';
 import { useUIStore } from '@/stores/ui';
 import type { ZineTemplate, ZineProject } from '@/types';
 import { getAllProjects } from '@/utils/persistence';
+import { EncryptedLock, PrintBlocks } from '@/icons';
 
 const templatesStore = useTemplatesStore();
 const projectStore = useProjectStore();
@@ -71,6 +94,7 @@ const uiStore = useUIStore();
 const selectedTemplate = ref<ZineTemplate | null>(null);
 const projectName = ref('');
 const recentProjects = ref<ZineProject[]>([]);
+const showSamplesOnboarding = ref(false);
 
 let onKey: ((e: KeyboardEvent) => void) | null = null;
 
@@ -82,6 +106,16 @@ onMounted(async () => {
   window.addEventListener('keydown', onKey);
   // Auto-generate a project name when the modal opens
   projectName.value = generateName();
+  // Show samples whenever there are zero projects; still show storage notice once
+  try {
+    if (recentProjects.value.length === 0) {
+      showSamplesOnboarding.value = true;
+      if (!localStorage.getItem('zineMaker.storageNoticeShown')) {
+        uiStore.openStorageNotice();
+        localStorage.setItem('zineMaker.storageNoticeShown', '1');
+      }
+    }
+  } catch {}
 });
 
 onUnmounted(() => { if (onKey) window.removeEventListener('keydown', onKey); });
@@ -96,6 +130,14 @@ function createProject(): void {
     projectStore.createNewProject(projectName.value.trim(), selectedTemplate.value);
     uiStore.hideTemplateSelector();
   }
+}
+
+async function createFromSample(id: string) {
+  const { createSample } = await import('@/utils/sampleZines');
+  const project = createSample(id);
+  if (!project) return;
+  projectStore.loadProject(project);
+  uiStore.hideTemplateSelector();
 }
 
 function generateName(): string {
@@ -320,4 +362,12 @@ function formatDate(date: Date): string {
 .field-label { font-size: 0.85rem; color: var(--ui-ink); }
 .name-row { display: flex; gap: .5rem; align-items: center; }
 .btn { padding: .5rem .75rem; border: 1px solid var(--border); background: var(--panel); border-radius: 6px; cursor: pointer; }
+
+.samples-onboarding { background: var(--surface); border: 1px solid var(--border-soft); border-radius: 8px; padding: .75rem; }
+.samples-onboarding h4 { margin: 0 0 .5rem 0; }
+.samples-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .5rem; }
+.sample-card { background: #fff; border: 1px dashed var(--border-soft); border-radius: 8px; padding: .5rem; display: flex; flex-direction: column; gap: .4rem; }
+.sample-card .thumb { display: flex; align-items: center; justify-content: center; height: 110px; background: #fff; }
+.sample-meta .name { font-weight: 600; }
+.sample-meta .desc { font-size: .85rem; opacity: .8; }
 </style>

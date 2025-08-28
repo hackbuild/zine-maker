@@ -23,20 +23,39 @@
             <h4>Start from a ready-made sample</h4>
             <div class="samples-grid">
               <div class="sample-card">
-                <div class="thumb icon-thumb"><EncryptedLock :size="72" /></div>
                 <div class="sample-meta">
                   <div class="name">Lock It Down</div>
-                  <div class="desc">Digital Security & Privacy Primer</div>
+                  <div class="desc">Digital security & privacy primer (half‑fold)</div>
                 </div>
                 <button class="btn" @click="createFromSample('security-half-fold')">Create from sample</button>
               </div>
               <div class="sample-card">
-                <div class="thumb icon-thumb"><PrintBlocks :size="72" /></div>
                 <div class="sample-meta">
-                  <div class="name">Zines: Voices Underground</div>
-                  <div class="desc">DIY culture, archiving & distribution</div>
+                  <div class="name">Zines: Voices from the Underground</div>
+                  <div class="desc">8‑page mini about zine culture</div>
                 </div>
                 <button class="btn" @click="createFromSample('oss-mini')">Create from sample</button>
+              </div>
+              <div class="sample-card">
+                <div class="sample-meta">
+                  <div class="name">OPSEC Field Guide</div>
+                  <div class="desc">8‑page pocket zine: digital safety for organizers</div>
+                </div>
+                <button class="btn" @click="createFromSample('opsec-mini')">Create from sample</button>
+              </div>
+              <div class="sample-card">
+                <div class="sample-meta">
+                  <div class="name">ICE: Know Your Rights</div>
+                  <div class="desc">8‑page pocket guide on rights and safer interactions</div>
+                </div>
+                <button class="btn" @click="createFromSample('ice-kyr-mini')">Create from sample</button>
+              </div>
+              <div class="sample-card">
+                <div class="sample-meta">
+                  <div class="name">Color‑Play</div>
+                  <div class="desc">Poem by Mahad Zara (4‑page half‑fold)</div>
+                </div>
+                <button class="btn" @click="createFromSample('color-play')">Create from sample</button>
               </div>
             </div>
           </div>
@@ -85,7 +104,6 @@ import { useProjectStore } from '@/stores/project';
 import { useUIStore } from '@/stores/ui';
 import type { ZineTemplate, ZineProject } from '@/types';
 import { getAllProjects } from '@/utils/persistence';
-import { EncryptedLock, PrintBlocks } from '@/icons';
 
 const templatesStore = useTemplatesStore();
 const projectStore = useProjectStore();

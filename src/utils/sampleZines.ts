@@ -4,6 +4,7 @@ import { saveProject } from '@/utils/persistence';
 import { text, textC, image } from './samples/common';
 import { buildOpsecMini } from './samples/opsecMini';
 import { buildIceKyrMini } from './samples/iceKyrMini';
+import { buildColorPlayMahadZara } from './samples/colorPlayMahadZara';
 
 // Inline SVG assets (small, no network) for sample imagery & thumbnails
 // old PADLOCK_PHONE retained for reference was unused; replaced by ICON_ENCRYPTED_LOCK
@@ -22,6 +23,7 @@ export const SAMPLE_LIST = [
   { id: 'oss-mini', name: 'Zines: Voices from the Underground', description: '8-page one-sheet mini zine about zine culture', thumbnail: THUMB_OSS },
   { id: 'opsec-mini', name: 'OPSEC Field Guide', description: '8-page pocket zine: digital safety for organizers', thumbnail: '' },
   { id: 'ice-kyr-mini', name: 'ICE: Know Your Rights', description: '8-page pocket zine on rights, safer interactions, and reporting', thumbnail: '' },
+  { id: 'color-play', name: 'Color‑Play', description: 'Poem by Mahad Zara, formatted as an 8‑page mini zine', thumbnail: '' },
 ];
 
 export function buildSecurityHalfFold(): ZineProject {
@@ -155,7 +157,7 @@ export function buildOpenSourceMini(): ZineProject {
 }
 
 export async function installSamples(): Promise<void> {
-  const samples = [buildSecurityHalfFold(), buildOpenSourceMini(), buildOpsecMini(), buildIceKyrMini()];
+  const samples = [buildSecurityHalfFold(), buildOpenSourceMini(), buildOpsecMini(), buildIceKyrMini(), buildColorPlayMahadZara()];
   for (const p of samples) await saveProject(p);
 }
 
@@ -168,6 +170,7 @@ export function createSample(id: string): ZineProject | null {
   if (id === 'oss-mini') return buildOpenSourceMini();
   if (id === 'opsec-mini') return buildOpsecMini();
   if (id === 'ice-kyr-mini') return buildIceKyrMini();
+  if (id === 'color-play') return buildColorPlayMahadZara();
   return null;
 }
 

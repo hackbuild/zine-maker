@@ -141,6 +141,12 @@ onMounted(async () => {
         uiStore.openStorageNotice();
         localStorage.setItem('zineMaker.storageNoticeShown', '1');
       }
+      // Ensure canvas centers after project DOM is painted
+      try {
+        await Promise.resolve();
+        uiStore.requestFit();
+        setTimeout(() => uiStore.requestFit(), 0);
+      } catch {}
     }
   }
 });

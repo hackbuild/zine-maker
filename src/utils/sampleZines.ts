@@ -1,43 +1,9 @@
-import type { ZineProject, ZinePage, ZineContent, TextProperties, ImageProperties } from '@/types';
+import type { ZineProject, ZinePage } from '@/types';
 import { useTemplatesStore } from '@/stores/templates';
 import { saveProject } from '@/utils/persistence';
-
-function text(id: string, x: number, y: number, w: number, h: number, text: string, size = 20, weight: 'normal'|'bold' = 'normal'): ZineContent {
-  const props: TextProperties = {
-    text,
-    fontSize: size,
-    fontFamily: 'Arial',
-    fontWeight: weight,
-    fontStyle: 'normal',
-    color: '#111111',
-    textAlign: 'left',
-    lineHeight: 1.2,
-    textDecoration: 'none',
-    padding: 0
-  };
-  return { id, type: 'text', x, y, width: w, height: h, rotation: 0, zIndex: Date.now(), properties: props } as ZineContent;
-}
-
-function textC(id: string, x: number, y: number, w: number, h: number, text: string, size = 20, weight: 'normal'|'bold' = 'normal', color = '#111111'): ZineContent {
-  const props: TextProperties = {
-    text,
-    fontSize: size,
-    fontFamily: 'Arial',
-    fontWeight: weight,
-    fontStyle: 'normal',
-    color,
-    textAlign: 'left',
-    lineHeight: 1.25,
-    textDecoration: 'none',
-    padding: 0
-  };
-  return { id, type: 'text', x, y, width: w, height: h, rotation: 0, zIndex: Date.now(), properties: props } as ZineContent;
-}
-
-function image(id: string, x: number, y: number, w: number, h: number, src: string, alt = ''): ZineContent {
-  const props: ImageProperties = { src, alt, opacity: 1 };
-  return { id, type: 'image', x, y, width: w, height: h, rotation: 0, zIndex: Date.now(), properties: props } as ZineContent;
-}
+import { text, textC, image } from './samples/common';
+import { buildOpsecMini } from './samples/opsecMini';
+import { buildIceKyrMini } from './samples/iceKyrMini';
 
 // Inline SVG assets (small, no network) for sample imagery & thumbnails
 // old PADLOCK_PHONE retained for reference was unused; replaced by ICON_ENCRYPTED_LOCK
@@ -54,6 +20,8 @@ const THUMB_OSS = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<?xml version
 export const SAMPLE_LIST = [
   { id: 'security-half-fold', name: 'Lock It Down', description: 'Digital security & privacy primer (half-fold)', thumbnail: THUMB_SECURITY },
   { id: 'oss-mini', name: 'Zines: Voices from the Underground', description: '8-page one-sheet mini zine about zine culture', thumbnail: THUMB_OSS },
+  { id: 'opsec-mini', name: 'OPSEC Field Guide', description: '8-page pocket zine: digital safety for organizers', thumbnail: '' },
+  { id: 'ice-kyr-mini', name: 'ICE: Know Your Rights', description: '8-page pocket zine on rights, safer interactions, and reporting', thumbnail: '' },
 ];
 
 export function buildSecurityHalfFold(): ZineProject {
@@ -187,7 +155,7 @@ export function buildOpenSourceMini(): ZineProject {
 }
 
 export async function installSamples(): Promise<void> {
-  const samples = [buildSecurityHalfFold(), buildOpenSourceMini()];
+  const samples = [buildSecurityHalfFold(), buildOpenSourceMini(), buildOpsecMini(), buildIceKyrMini()];
   for (const p of samples) await saveProject(p);
 }
 
@@ -198,6 +166,8 @@ export function getSamples() {
 export function createSample(id: string): ZineProject | null {
   if (id === 'security-half-fold') return buildSecurityHalfFold();
   if (id === 'oss-mini') return buildOpenSourceMini();
+  if (id === 'opsec-mini') return buildOpsecMini();
+  if (id === 'ice-kyr-mini') return buildIceKyrMini();
   return null;
 }
 

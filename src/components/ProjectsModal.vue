@@ -18,10 +18,6 @@
 
         <div v-if="showSamples" class="samples-grid">
           <div v-for="s in samples" :key="s.id" class="sample-card">
-            <div class="thumb icon-thumb">
-              <EncryptedLock v-if="s.id==='security-half-fold'" :size="72" />
-              <PrintBlocks v-else-if="s.id==='oss-mini'" :size="72" accent="#5CFF6A" />
-            </div>
             <div class="sample-info">
               <div class="sample-name">{{ s.name }}</div>
               <div class="sample-desc">{{ s.description }}</div>
@@ -72,7 +68,6 @@ import { useProjectStore } from '@/stores/project';
 import { useUIStore } from '@/stores/ui';
 import { getAllProjects, loadProject, deleteProject, renameProject, saveProject } from '@/utils/persistence';
 import type { ZineProject } from '@/types';
-import { EncryptedLock, PrintBlocks } from '@/icons';
 import { Download } from 'lucide-vue-next';
 
 const emit = defineEmits<{ (e: 'close'): void }>();
@@ -229,14 +224,12 @@ onUnmounted(() => { if (onKey) window.removeEventListener('keydown', onKey); });
 .close-button--red { background: var(--accent-red); color: #fff; width: 28px; height: 28px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--border); box-shadow: 2px 2px 0 #000; }
 
 .backup-bar { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
-.samples-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; margin-bottom: 0.75rem; }
-.sample-card { background: var(--surface); border: 1px solid var(--border-soft); border-radius: 8px; padding: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem; }
-.sample-card .thumb { position: relative; width: 100%; height: 120px; background: #fff; border: 1px dashed var(--border-soft); border-radius: 6px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-.icon-thumb :deep(svg) { filter: drop-shadow(1px 1px 0 #000); }
+.samples-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.75rem; margin-bottom: 0.75rem; }
+.sample-card { background: var(--surface); border: 1px solid var(--border-soft); border-radius: 8px; padding: 0.6rem 0.75rem; display: grid; grid-template-columns: 1fr auto; gap: 0.4rem; align-items: center; }
 .sample-info { display: flex; flex-direction: column; gap: 0.2rem; }
 .sample-name { font-weight: 600; }
 .sample-desc { font-size: 0.85rem; opacity: 0.8; }
-.sample-actions { margin-top: 0.25rem; display: flex; justify-content: flex-end; }
+.sample-actions { display: flex; justify-content: flex-end; }
 .projects-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
 .project-item { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background: var(--surface); border: 1px solid var(--border-soft); border-radius: 8px; }
 .project-item .info .name { font-weight: 600; color: var(--ui-ink); }

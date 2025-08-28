@@ -158,8 +158,11 @@ const containerSize = ref<{ w: number; h: number }>({ w: 0, h: 0 });
 let resizeObserver: ResizeObserver | null = null;
 
 const stageConfig = computed(() => {
-  const width = Math.max(10, containerSize.value.w || (pageBackgroundConfig.value.width + containerPad * 2));
-  const height = Math.max(10, containerSize.value.h || (pageBackgroundConfig.value.height + containerPad * 2));
+  // Always size stage from container to keep page centered; fall back to window size
+  const fallbackW = typeof window !== 'undefined' ? window.innerWidth : (pageBackgroundConfig.value.width + containerPad * 2);
+  const fallbackH = typeof window !== 'undefined' ? window.innerHeight - 64 : (pageBackgroundConfig.value.height + containerPad * 2);
+  const width = Math.max(10, containerSize.value.w || fallbackW);
+  const height = Math.max(10, containerSize.value.h || fallbackH);
   return { width, height, draggable: isSpacePanning.value || toolsStore.activeTool === 'pan' };
 });
 
@@ -994,6 +997,8 @@ onMounted(() => {
       } catch {}
     }
     fitToContainer();
+    // Run a second time on the next frame to ensure centering after stage/layout settles
+    try { requestAnimationFrame(() => fitToContainer()); } catch { setTimeout(() => fitToContainer(), 0); }
   });
 });
 

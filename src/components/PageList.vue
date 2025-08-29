@@ -3,7 +3,10 @@
     <div class="page-list-header">
       <h3>Pages</h3>
       <span class="page-count">{{ projectStore.pageCount }} pages</span>
-      <button class="collapse-button" @click="uiStore.togglePageListCollapsed()">{{ uiStore.pageListCollapsed ? '▸' : '▾' }}</button>
+      <button class="collapse-button" @click="uiStore.togglePageListCollapsed()">
+        <ChevronRight v-if="uiStore.pageListCollapsed" :size="20" />
+        <ChevronDown v-else :size="20" />
+      </button>
     </div>
 
     <div class="pages-grid">
@@ -47,6 +50,7 @@ import { useProjectStore } from '@/stores/project';
 import { useUIStore } from '@/stores/ui';
 import { useAssetStore } from '@/stores/assetStore';
 import { exportZineForTemplate } from '@/composables/useZineExport';
+import { ChevronRight, ChevronDown } from 'lucide-vue-next';
 
 const projectStore = useProjectStore();
 const uiStore = useUIStore();
@@ -145,7 +149,23 @@ async function exportZine(): Promise<void> {
   color: var(--ui-ink);
   font-size: 0.8rem;
 }
-.collapse-button { border: none; background: transparent; color: var(--ui-ink); cursor: pointer; }
+.collapse-button { 
+  border: none; 
+  background: transparent; 
+  color: var(--ui-ink); 
+  cursor: pointer; 
+  padding: 0.4rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.collapse-button:hover {
+  background: var(--surface);
+}
 
 .pages-grid {
   flex: 1;
@@ -335,6 +355,12 @@ async function exportZine(): Promise<void> {
     font-size: 0.75rem;
     min-width: 0;
     flex: 0 0 auto;
+  }
+  
+  .collapse-button {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0.5rem;
   }
 }
 </style>

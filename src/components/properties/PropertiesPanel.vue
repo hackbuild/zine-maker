@@ -5,7 +5,10 @@
         <button :class="['tab', activeTab === 'properties' && 'active']" @click="activeTab = 'properties'">Properties</button>
         <button :class="['tab', activeTab === 'layers' && 'active']" @click="activeTab = 'layers'">Layers</button>
       </div>
-      <button class="collapse-button" @click="uiStore.togglePropertiesCollapsed()">{{ uiStore.propertiesCollapsed ? '▸' : '▾' }}</button>
+      <button class="collapse-button" @click="uiStore.togglePropertiesCollapsed()">
+        <ChevronRight v-if="uiStore.propertiesCollapsed" :size="20" />
+        <ChevronDown v-else :size="20" />
+      </button>
     </div>
 
     <div class="properties-content" v-show="!uiStore.propertiesCollapsed">
@@ -62,6 +65,7 @@
 import { computed, ref } from 'vue';
 import { useProjectStore } from '@/stores/project';
 import { useUIStore } from '@/stores/ui';
+import { ChevronRight, ChevronDown } from 'lucide-vue-next';
 import LayersPanel from '@/components/LayersPanel.vue';
 import TextProperties from './TextProperties.vue';
 import ImageProperties from './ImageProperties.vue';
@@ -137,7 +141,23 @@ function updateTransform(contentId: string, updates: Partial<ZineContent>) {
   cursor: pointer;
 }
 .tab.active { border-color: var(--border); box-shadow: 1px 1px 0 #000; }
-.collapse-button { border: none; background: transparent; font-size: 16px; cursor: pointer; color: var(--ui-ink); }
+.collapse-button { 
+  border: none; 
+  background: transparent; 
+  color: var(--ui-ink); 
+  cursor: pointer; 
+  padding: 0.4rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.collapse-button:hover {
+  background: var(--surface);
+}
 
 .properties-header h3 {
   margin: 0;
@@ -204,9 +224,9 @@ function updateTransform(contentId: string, updates: Partial<ZineContent>) {
   }
   
   .collapse-button {
-    font-size: 18px;
-    /* Larger touch target */
-    padding: 0.4rem;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0.5rem;
   }
 }
 

@@ -213,7 +213,7 @@ onUnmounted(() => { if (onKey) window.removeEventListener('keydown', onKey); });
 
 <style scoped>
 .modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1100;
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 2100; /* Above mobile panels */
 }
 .modal {
   background: var(--panel); width: 720px; max-width: 95vw; max-height: 85vh; overflow: auto; border-radius: 10px; border: 1.5px solid var(--border); position: relative; box-shadow: 4px 4px 0 #000;
@@ -239,9 +239,71 @@ onUnmounted(() => { if (onKey) window.removeEventListener('keydown', onKey); });
 .btn-danger { background: var(--accent-red); color: #fff; border: 1.5px solid var(--border); box-shadow: 2px 2px 0 #000; }
 .empty { color: var(--ui-ink); opacity: 0.75; padding: 0.5rem; }
 
-.confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1200; }
+.confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 2200; /* Above other modals */ }
 .confirm-modal { background: var(--panel); border: 1.5px solid var(--border); box-shadow: 4px 4px 0 #000; border-radius: 10px; width: 420px; max-width: 95vw; padding: 1rem; }
 .confirm-modal h3 { margin: 0 0 0.25rem 0; }
 .confirm-input { width: 100%; padding: 0.5rem 0.6rem; border: 1px solid var(--border-soft); border-radius: 6px; background: var(--surface); color: var(--ui-ink); margin-top: 0.35rem; }
 .confirm-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.75rem; }
+
+/* Mobile responsive projects modal */
+@media (max-width: 768px) {
+  .modal {
+    width: 95vw;
+    max-height: 90vh;
+    margin: 0 auto;
+  }
+  
+  .modal-header {
+    padding: 0.8rem;
+  }
+  
+  .modal-body {
+    padding: 0.8rem;
+  }
+  
+  .backup-bar {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  
+  .backup-bar .btn {
+    flex: 1 1 calc(50% - 0.2rem);
+    min-width: 120px;
+    padding: 0.5rem 0.4rem;
+    font-size: 0.8rem;
+  }
+  
+  .project-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+  
+  .project-item .actions {
+    justify-content: stretch;
+    gap: 0.4rem;
+  }
+  
+  .project-item .actions .btn {
+    flex: 1;
+    padding: 0.5rem 0.4rem;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal {
+    width: 98vw;
+    border-radius: 8px;
+  }
+  
+  .backup-bar .btn {
+    flex: 1 1 100%;
+    margin-bottom: 0.3rem;
+  }
+  
+  .samples-grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

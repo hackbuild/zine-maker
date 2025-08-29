@@ -9,8 +9,11 @@
           :config="stageConfig"
           @wheel="onWheel"
           @mousedown="onStageMouseDown"
+          @touchstart="onStageMouseDown"
           @mousemove="onStageMouseMove"
+          @touchmove="onStageMouseMove"
           @mouseup="onStageMouseUp"
+          @touchend="onStageMouseUp"
           @click="onStageClick"
           @tap="onStageClick"
         >
@@ -24,8 +27,11 @@
                 v-if="node.kind === 'shape' && node.shapeType === 'rectangle'"
                 :config="node.config"
                 @mousedown="onNodeMouseDown(node.id, $event)"
+                @touchstart="onNodeMouseDown(node.id, $event)"
                 @click="selectNode(node.id, $event)"
+                @tap="selectNode(node.id, $event)"
                 @dblclick="onNodeDblClick(node.id, $event)"
+                @dbltap="onNodeDblClick(node.id, $event)"
                 @dragmove="onNodeDragMove(node.id, $event)"
                 @dragend="onDragEnd(node.id, $event)"
               />
@@ -33,8 +39,11 @@
                 v-else-if="node.kind === 'shape' && node.shapeType === 'circle'"
                 :config="node.config"
                 @mousedown="onNodeMouseDown(node.id, $event)"
+                @touchstart="onNodeMouseDown(node.id, $event)"
                 @click="selectNode(node.id, $event)"
+                @tap="selectNode(node.id, $event)"
                 @dblclick="onNodeDblClick(node.id, $event)"
+                @dbltap="onNodeDblClick(node.id, $event)"
                 @dragmove="onNodeDragMove(node.id, $event)"
                 @dragend="onDragEnd(node.id, $event)"
               />
@@ -42,8 +51,11 @@
                 v-else-if="node.kind === 'shape' && node.shapeType === 'line'"
                 :config="node.config"
                 @mousedown="onNodeMouseDown(node.id, $event)"
+                @touchstart="onNodeMouseDown(node.id, $event)"
                 @click="selectNode(node.id, $event)"
+                @tap="selectNode(node.id, $event)"
                 @dblclick="onNodeDblClick(node.id, $event)"
+                @dbltap="onNodeDblClick(node.id, $event)"
                 @dragmove="onNodeDragMove(node.id, $event)"
                 @dragend="onDragEnd(node.id, $event)"
               />
@@ -51,8 +63,11 @@
                 v-else-if="node.kind === 'shape' && node.shapeType === 'triangle'"
                 :config="node.config"
                 @mousedown="onNodeMouseDown(node.id, $event)"
+                @touchstart="onNodeMouseDown(node.id, $event)"
                 @click="selectNode(node.id, $event)"
+                @tap="selectNode(node.id, $event)"
                 @dblclick="onNodeDblClick(node.id, $event)"
+                @dbltap="onNodeDblClick(node.id, $event)"
                 @dragmove="onNodeDragMove(node.id, $event)"
                 @dragend="onDragEnd(node.id, $event)"
               />
@@ -60,8 +75,11 @@
                 v-else-if="node.kind === 'text'"
                 :config="node.config"
                 @mousedown="onNodeMouseDown(node.id, $event)"
+                @touchstart="onNodeMouseDown(node.id, $event)"
                 @click="selectNode(node.id, $event)"
+                @tap="selectNode(node.id, $event)"
                 @dblclick="onNodeDblClick(node.id, $event)"
+                @dbltap="onNodeDblClick(node.id, $event)"
                 @dragmove="onNodeDragMove(node.id, $event)"
                 @dragend="onDragEnd(node.id, $event)"
               />
@@ -69,8 +87,11 @@
                 v-else-if="node.kind === 'image'"
                 :config="node.config"
                 @mousedown="onNodeMouseDown(node.id, $event)"
+                @touchstart="onNodeMouseDown(node.id, $event)"
                 @click="selectNode(node.id, $event)"
+                @tap="selectNode(node.id, $event)"
                 @dblclick="onNodeDblClick(node.id, $event)"
+                @dbltap="onNodeDblClick(node.id, $event)"
                 @dragmove="onNodeDragMove(node.id, $event)"
                 @dragend="onDragEnd(node.id, $event)"
               />
@@ -78,8 +99,11 @@
                 v-else-if="node.kind === 'drawing'"
                 :config="node.config"
                 @mousedown="onNodeMouseDown(node.id, $event)"
+                @touchstart="onNodeMouseDown(node.id, $event)"
                 @click="selectNode(node.id, $event)"
+                @tap="selectNode(node.id, $event)"
                 @dblclick="onNodeDblClick(node.id, $event)"
+                @dbltap="onNodeDblClick(node.id, $event)"
                 @dragmove="onNodeDragMove(node.id, $event)"
                 @dragend="onDragEnd(node.id, $event)"
               />
@@ -90,8 +114,11 @@
               v-if="hasSelection && selectionBounds"
               :config="{ x: selectionBounds.x, y: selectionBounds.y, width: selectionBounds.width, height: selectionBounds.height, fill: 'rgba(0,0,0,0)', listening: true, id: 'selection-overlay' }"
               @mousedown="onOverlayMouseDown"
+              @touchstart="onOverlayMouseDown"
               @mousemove="onOverlayMouseMove"
+              @touchmove="onOverlayMouseMove"
               @mouseup="onOverlayMouseUp"
+              @touchend="onOverlayMouseUp"
             />
 
             <!-- Selection marquee -->
@@ -113,6 +140,8 @@
         <button class="fz-btn" @click="fit" title="Fit">Fit</button>
         <button class="fz-btn" @click="zoomIn" title="Zoom In">+</button>
       </div>
+      
+
       <div class="resize-handle" @mousedown.prevent="startResize"></div>
 
       <!-- Text editor overlay -->
@@ -163,7 +192,13 @@ const stageConfig = computed(() => {
   const fallbackH = typeof window !== 'undefined' ? window.innerHeight - 64 : (pageBackgroundConfig.value.height + containerPad * 2);
   const width = Math.max(10, containerSize.value.w || fallbackW);
   const height = Math.max(10, containerSize.value.h || fallbackH);
-  return { width, height, draggable: isSpacePanning.value || toolsStore.activeTool === 'pan' };
+  return { 
+    width, 
+    height, 
+    draggable: isSpacePanning.value || toolsStore.activeTool === 'pan',
+    // Critical for mobile: prevent default browser touch behaviors
+    preventDefault: true
+  };
 });
 
 const selectedIds = computed(() => projectStore.selectedContentIds);
@@ -659,8 +694,10 @@ function centerStage(stage: Konva.Stage, newScale: number) {
 }
 
 onMounted(() => {
-  // Reduce accidental drags when simply clicking nodes
-  try { (Konva as any).dragDistance(6); } catch {}
+  // Standard Konva configuration
+  try { 
+    (Konva as any).dragDistance(4);
+  } catch {}
   const tr = transformerRef.value?.getNode?.();
   const layer = contentLayerRef.value?.getNode?.();
   if (!tr || !layer) return;
@@ -968,6 +1005,8 @@ const isSpacePanning = ref(false);
 const isDrawing = ref(false);
 let lastLine: Konva.Line | null = null;
 
+
+
 let onKeyDown: (e: KeyboardEvent) => void;
 let onKeyUp: (e: KeyboardEvent) => void;
 
@@ -999,6 +1038,8 @@ onMounted(() => {
     fitToContainer();
     // Run a second time on the next frame to ensure centering after stage/layout settles
     try { requestAnimationFrame(() => fitToContainer()); } catch { setTimeout(() => fitToContainer(), 0); }
+    
+
   });
 });
 
@@ -1245,6 +1286,8 @@ function addShape(x: number, y: number) {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), inset 0 0 0 1.5px var(--border);
   border: 2px dashed var(--border-soft);
   position: relative;
+  /* Ensure proper touch handling */
+  touch-action: none;
 }
 .canvas-container.resizable { width: min(90%, 900px); height: min(70vh, 600px); }
 .resize-handle {
@@ -1278,4 +1321,38 @@ function addShape(x: number, y: number) {
   cursor: pointer;
 }
 .fz-btn:hover { background: var(--panel); }
+
+/* Mobile responsive canvas - keep it simple */
+@media (max-width: 900px) {
+  .canvas-container.resizable {
+    width: 95%;
+    height: 70vh;
+    min-height: 500px;
+    /* Ensure touch events work properly */
+    touch-action: none;
+  }
+  
+  .resize-handle {
+    display: none;
+  }
+  
+  .floating-zoom {
+    right: 12px;
+    bottom: 12px;
+    /* Better mobile visibility */
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(4px);
+  }
+  
+  .fz-btn {
+    padding: 10px 14px;
+    min-width: 48px;
+    min-height: 48px;
+    font-weight: 600;
+  }
+  
+  .text-editor {
+    font-size: 16px !important; /* Prevent zoom on iOS */
+  }
+}
 </style>

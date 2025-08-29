@@ -180,4 +180,57 @@ function updateTransform(contentId: string, updates: Partial<ZineContent>) {
   margin: 0;
   font-size: 0.9rem;
 }
+
+/* Mobile responsive properties panel */
+@media (max-width: 768px) {
+  .properties-panel {
+    /* Improve touch scrolling */
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .properties-header {
+    padding: 0.8rem;
+  }
+  
+  .tab {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    /* Larger touch target */
+    min-height: 40px;
+  }
+  
+  .properties-content {
+    padding: 0.8rem;
+  }
+  
+  .collapse-button {
+    font-size: 18px;
+    /* Larger touch target */
+    padding: 0.4rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .properties-header {
+    padding: 0.6rem;
+  }
+  
+  .tab {
+    padding: 6px 8px;
+    font-size: 0.8rem;
+    min-height: 36px;
+  }
+  
+  .properties-content {
+    padding: 0.6rem;
+  }
+  
+  .no-selection {
+    padding: 1.5rem 0.8rem;
+  }
+  
+  .no-selection p {
+    font-size: 0.85rem;
+  }
+}
 </style>

@@ -257,4 +257,84 @@ async function exportZine(): Promise<void> {
 }
 
 .export-button:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 #000; }
+
+/* Mobile responsive page list */
+@media (max-width: 768px) {
+  .page-list {
+    padding: 0.5rem;
+    /* Improve touch scrolling */
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .page-item {
+    padding: 0.6rem;
+    gap: 0.6rem;
+  }
+  
+  .page-preview {
+    width: 56px;
+    height: 42px;
+  }
+  
+  .page-title {
+    font-size: 0.85rem;
+  }
+  
+  .page-stats {
+    font-size: 0.7rem;
+  }
+  
+  .export-button {
+    padding: 0.7rem;
+    font-size: 0.85rem;
+    /* Larger touch target */
+    min-height: 48px;
+  }
+  
+  .export-options label {
+    font-size: 0.8rem;
+    /* Larger touch targets for checkboxes */
+    padding: 0.2rem;
+  }
+  
+  .export-options input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-list {
+    padding: 0.4rem;
+  }
+  
+  .page-item {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
+  
+  .page-preview {
+    width: 48px;
+    height: 36px;
+  }
+  
+  .page-title {
+    font-size: 0.8rem;
+  }
+  
+  .page-stats {
+    font-size: 0.65rem;
+  }
+  
+  .export-options {
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  
+  .export-options label {
+    font-size: 0.75rem;
+    min-width: 0;
+    flex: 0 0 auto;
+  }
+}
 </style>

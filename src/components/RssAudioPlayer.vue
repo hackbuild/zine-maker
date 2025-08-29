@@ -250,9 +250,34 @@ function isDirectAudio(u: string): boolean {
 
 .rss-player audio { display: none; }
 
-/* Hide marquee text under 1200px to preserve header space */
+/* Responsive radio player */
 @media (max-width: 1200px) {
-  .marquee { display: none; }
+  .rss-player {
+    min-width: 140px;
+    max-width: 300px;
+  }
+  
+  .marquee {
+    min-width: 80px;
+    max-width: 180px;
+  }
+}
+
+@media (max-width: 768px) {
+  .rss-player {
+    min-width: 120px;
+    max-width: 200px;
+  }
+  
+  .marquee {
+    min-width: 60px;
+    max-width: 120px;
+  }
+  
+  .feed-select {
+    max-width: 100px;
+    font-size: 0.8rem;
+  }
 }
 </style>
 

@@ -2,6 +2,24 @@
 
 Professional zine design tool built with Vue 3, Vite, Konva.js (via vue-konva), and Pinia. Design page-by-page, manage layers, group and transform items, and export print-ready spreads for common zine formats.
 
+🌐 **Live Demo**: [zeenster.com](https://zeenster.com)
+
+Create printable zines directly in your browser with this professional design tool. No installation required - works on desktop and mobile devices.
+
+## Screenshots
+
+### Template Selection
+![Template Selector](docs/screenshots/template-selector.png)
+*Choose from various zine formats including quarter-fold, half-fold, booklet, and accordion styles*
+
+### Main Editor Interface  
+![Main Editor](docs/screenshots/main-editor.png)
+*Three-pane editor with pages list, canvas, and properties panel - fully responsive design*
+
+### Export & Print Ready
+![Export Modal](docs/screenshots/export-modal.png)
+*Export high-resolution PNG and PDF files ready for printing with fold marks and cut guides*
+
 ## Highlights
 
 - **Three‑pane editor**: Pages | Canvas | Properties
@@ -11,6 +29,7 @@ Professional zine design tool built with Vue 3, Vite, Konva.js (via vue-konva), 
 - **Templates & imposition**: quarter‑fold (slit zine), half‑fold, booklet (multi‑sheet) with front/back sides
 - **Export**: hi‑res PNG sides and multi‑page PDF (jsPDF)
 - **Persistence**: IndexedDB projects/assets + Projects modal
+- **Mobile responsive**: Touch-optimized interface with collapsible panels
 - **Theming**: CSS custom properties and dark mode
 
 ## Tech Stack

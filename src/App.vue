@@ -40,17 +40,17 @@
         </div>
         
         <div class="header-right">
-          <button v-if="isMobile" @click="uiStore.togglePageList()" class="header-button icon-only" title="Toggle Pages" aria-label="Toggle Pages">
+          <button v-if="isMobile" @click="uiStore.togglePageListCollapsed()" class="header-button icon-only" title="Toggle Pages" aria-label="Toggle Pages">
             <Sidebar :size="16" />
           </button>
-          <button v-if="isMobile" @click="uiStore.toggleProperties()" class="header-button icon-only" title="Toggle Properties" aria-label="Toggle Properties">
+          <button v-if="isMobile" @click="uiStore.togglePropertiesCollapsed()" class="header-button icon-only" title="Toggle Properties" aria-label="Toggle Properties">
             <Sliders :size="16" />
           </button>
           <!-- <button @click="toggleTheme" class="header-button icon-only" :title="`Switch to ${theme==='dark'?'Light':'Dark'} Theme`">
             <Sun v-if="theme==='dark'" :size="16" />
             <Moon v-else :size="16" />
           </button> -->
-          <a href="https://github.com/virgilvox/zine-maker" target="_blank" rel="noopener noreferrer" class="header-button" title="GitHub Repository">
+          <a v-if="!isMobile" href="https://github.com/virgilvox/zine-maker" target="_blank" rel="noopener noreferrer" class="header-button" title="GitHub Repository">
             <Github :size="16" />
             <span>GitHub</span>
           </a>
@@ -70,13 +70,20 @@
         </div>
       </header>
 
-      <!-- Mobile backdrop for panels -->
-      <div v-if="isMobile && (uiStore.showPageList || uiStore.showProperties)" class="panel-backdrop" @click="closeMobilePanels" />
+      <!-- Mobile backdrop for expanded panels -->
+      <div v-if="isMobile && ((uiStore.showPageList && !uiStore.pageListCollapsed) || (uiStore.showProperties && !uiStore.propertiesCollapsed))" class="panel-backdrop" @click="closeMobilePanels" />
 
       <div class="app-main">
-        <PageList v-if="uiStore.showPageList" class="sidebar" />
+        <PageList 
+          v-if="uiStore.showPageList" 
+          class="sidebar" 
+        />
         <KonvaPageEditor class="editor" />
-        <PropertiesPanel v-if="uiStore.showProperties" class="properties" @close="uiStore.toggleProperties()" />
+        <PropertiesPanel 
+          v-if="uiStore.showProperties" 
+          class="properties" 
+          @close="uiStore.toggleProperties()"
+        />
       </div>
     </div>
   </div>
@@ -108,7 +115,16 @@ const assetStore = useAssetStore();
 
 const theme = ref<'light'|'dark'>( (localStorage.getItem('theme') as any) || 'light');
 const isMobile = ref(false);
-function updateIsMobile() { isMobile.value = window.matchMedia('(max-width: 900px)').matches; }
+function updateIsMobile() { 
+  const wasMobile = isMobile.value;
+  isMobile.value = window.matchMedia('(max-width: 900px)').matches; 
+  
+  // Auto-collapse panels when switching to mobile
+  if (isMobile.value && !wasMobile) {
+    uiStore.pageListCollapsed = true;
+    uiStore.propertiesCollapsed = true;
+  }
+}
 function applyTheme() { document.documentElement.setAttribute('data-theme', theme.value); }
 // function toggleTheme(){ theme.value = theme.value==='dark' ? 'light' : 'dark'; localStorage.setItem('theme', theme.value); applyTheme(); }
 
@@ -128,6 +144,12 @@ onMounted(async () => {
   applyTheme();
   updateIsMobile();
   window.addEventListener('resize', updateIsMobile);
+  
+  // Auto-collapse panels on mobile but keep them visible
+  if (isMobile.value) {
+    uiStore.pageListCollapsed = true;
+    uiStore.propertiesCollapsed = true;
+  }
   
   // Attempt to load the last open project
   const lastProjectId = getLastOpenProjectId();
@@ -244,8 +266,8 @@ function handleKeyDown(event: KeyboardEvent): void {
 
 function closeMobilePanels(): void {
   if (!isMobile.value) return;
-  uiStore.showPageList = false;
-  uiStore.showProperties = false;
+  uiStore.pageListCollapsed = true;
+  uiStore.propertiesCollapsed = true;
 }
 
 async function addImageToCanvas(assetId: number) {
@@ -280,22 +302,48 @@ async function addImageToCanvas(assetId: number) {
   box-sizing: border-box;
 }
 
+/* Mobile touch optimizations */
+button, .tool-button, .header-button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+/* Prevent text selection on UI elements */
+.app-header, .app-toolbar, .page-list-header, .properties-header {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: #f8fafc;
   color: #1f2937;
+  /* Mobile optimizations */
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #app {
   height: 100vh;
+  height: 100dvh; /* Dynamic viewport height for mobile */
   display: flex;
   flex-direction: column;
+  /* Safe area support for iOS */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 .zine-maker {
   height: 100vh;
+  height: 100dvh; /* Dynamic viewport height for mobile */
   display: flex;
   flex-direction: column;
+  /* Prevent mobile scaling issues */
+  overflow: hidden;
 }
 
 .app-header {
@@ -348,6 +396,8 @@ body {
   gap: 1rem;
   flex: 0 0 auto;
   flex-wrap: nowrap;
+  align-items: center;
+  min-width: 0; /* Allow shrinking */
 }
 
 .header-center {
@@ -409,11 +459,82 @@ body {
   .app-header .header-left .project-info { display: none; }
 }
 
+/* Better mobile header layout - keep it simple */
+@media (max-width: 768px) {
+  .app-header {
+    padding: 0.5rem 0.8rem;
+    height: 60px;
+    gap: 0.5rem;
+  }
+  
+  .header-left {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  
+  .header-center {
+    min-width: 120px;
+  }
+  
+  .header-right {
+    flex: 0 0 auto;
+    gap: 0.4rem;
+  }
+  
+  .header-button {
+    padding: 0.4rem;
+    font-size: 0.8rem;
+    min-width: 40px;
+    min-height: 40px;
+  }
+  
+  .header-button.icon-only {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-header {
+    padding: 0.4rem 0.6rem;
+    height: 56px;
+    gap: 0.4rem;
+  }
+  
+  .header-button {
+    padding: 0.3rem;
+    min-width: 36px;
+    min-height: 36px;
+    font-size: 0.75rem;
+  }
+  
+  .header-button.icon-only {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .header-right {
+    gap: 0.3rem;
+  }
+  
+  .header-center {
+    min-width: 100px;
+  }
+}
+
+/* Very small mobile - hide radio */
+@media (max-width: 560px) {
+  .header-center {
+    display: none;
+  }
+}
+
 .app-main {
   flex: 1;
   display: flex;
   overflow: hidden;
   height: calc(100vh - 64px);
+  min-height: 0; /* Allow flex shrinking */
 }
 
 .editor {
@@ -435,29 +556,103 @@ body {
   flex-shrink: 0;
 }
 
-/* Mobile responsive layout */
+/* Mobile responsive layout - proper side panels that collapse */
 @media (max-width: 900px) {
-  .app-main { position: relative; }
-  .editor { flex: 1 1 auto; }
+  .app-main { 
+    position: relative;
+    height: calc(100vh - 64px); /* Full remaining viewport height */
+  }
+  .editor { 
+    flex: 1 1 auto; 
+  }
   .sidebar, .properties {
     position: absolute;
-    top: 0;
+    top: 50px; /* Account for toolbar height */
     bottom: 0;
     background: var(--panel);
-    z-index: 1000;
-    height: calc(100vh - 64px);
+    z-index: 2000;
+    height: auto; /* Let it fill available space */
+    max-height: calc(100% - 50px);
+    overflow-y: auto;
     box-shadow: 0 0 20px rgba(0,0,0,.2);
+    transition: transform .3s ease;
+    will-change: transform;
   }
-  .sidebar { left: 0; width: min(80vw, 320px); transform: translateX(-100%); transition: transform .2s ease; }
-  .properties { right: 0; width: min(80vw, 360px); transform: translateX(100%); transition: transform .2s ease; }
-  .zine-maker .sidebar[style], .zine-maker .properties[style] { /* keep styles minimal */ }
-  /* When visible via v-if, slide in (we use v-if already; ensure visible panels are translated in) */
-  .sidebar { transform: translateX(0%); }
-  .properties { transform: translateX(0%); }
-  .panel-backdrop { position: fixed; inset: 64px 0 0 0; background: rgba(0,0,0,.35); z-index: 900; }
+  .sidebar { 
+    left: 0; 
+    width: min(80vw, 320px); 
+  }
+  .properties { 
+    right: 0; 
+    width: min(80vw, 360px); 
+  }
+  
+  /* Collapsed panels show just their header */
+  .sidebar.collapsed {
+    width: 40px;
+    transform: translateX(0);
+  }
+  .properties.collapsed {
+    width: 40px;
+    transform: translateX(0);
+  }
+  
+  /* Expanded panels slide in fully */
+  .sidebar:not(.collapsed) { transform: translateX(0%); }
+  .properties:not(.collapsed) { transform: translateX(0%); }
+  
+  .panel-backdrop { 
+    position: fixed; 
+    inset: 114px 0 0 0; /* Header (64px) + Toolbar (~50px) */
+    background: rgba(0,0,0,.35); 
+    z-index: 900;
+  }
 }
 
-.notice-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 1200; }
+/* Tablet breakpoint */
+@media (max-width: 768px) {
+  .app-header {
+    padding: 0.5rem 1rem;
+    height: 56px;
+  }
+  .header-button {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+  }
+  .header-button.icon-only { 
+    padding: 0.4rem; 
+    width: 40px;
+    height: 40px;
+  }
+  .project-name {
+    font-size: clamp(0.7rem, 1.5vw, 1rem);
+  }
+}
+
+/* Small mobile breakpoint */
+@media (max-width: 480px) {
+  .app-header {
+    padding: 0.4rem 0.8rem;
+    height: 52px;
+    gap: 8px;
+  }
+  .header-button {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+  }
+  .header-button.icon-only { 
+    padding: 0.3rem;
+    width: 36px;
+    height: 36px;
+  }
+  .header-right {
+    gap: 0.5rem;
+  }
+  .sidebar { width: 90vw; }
+  .properties { width: 90vw; }
+}
+
+.notice-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 2200; /* Above other modals */ }
 .notice { background: var(--panel); border: 1.5px solid var(--border); border-radius: 12px; padding: 1.25rem; width: min(520px, 90vw); box-shadow: 4px 4px 0 #000; }
 .notice h3 { margin: 0 0 .5rem 0; }
 .notice p { margin: .25rem 0; color: var(--ui-ink); }

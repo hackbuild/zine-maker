@@ -202,6 +202,10 @@ function updateDrawingSetting(key: string, value: any) {
   color: var(--ui-ink);
   transition: all 0.2s ease;
   position: relative;
+  /* Touch optimization */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
 }
 
 .tool-button:hover {
@@ -297,6 +301,7 @@ function updateDrawingSetting(key: string, value: any) {
 }
 
 .size-slider::-webkit-slider-thumb, .opacity-slider::-webkit-slider-thumb {
+  appearance: none;
   -webkit-appearance: none;
   width: 16px;
   height: 16px;
@@ -323,4 +328,93 @@ function updateDrawingSetting(key: string, value: any) {
 /* history controls match toolbar */
 .history-controls { display: flex; gap: 0.25rem; margin-left: 0.5rem; }
 .history-controls .tool-button[disabled] { opacity: 0.4; cursor: not-allowed; }
+
+/* Mobile responsive toolbar */
+@media (max-width: 768px) {
+  .app-toolbar {
+    padding: 0.4rem 0.8rem;
+    margin: 0 0.8rem;
+    gap: 0.8rem;
+  }
+  
+  .toolbar-section {
+    gap: 0.2rem;
+  }
+  
+  .tool-button {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+  }
+  
+  .drawing-toolbar.below {
+    margin: 6px 0.8rem 0 0.8rem;
+  }
+  
+  .drawing-controls {
+    gap: 0.8rem;
+    flex-wrap: wrap;
+  }
+  
+  .control-group {
+    gap: 0.4rem;
+  }
+  
+  .size-slider, .opacity-slider {
+    width: 70px;
+  }
+  
+  .color-input {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-toolbar {
+    padding: 0.3rem 0.6rem;
+    margin: 0 0.6rem;
+    gap: 0.6rem;
+  }
+  
+  .toolbar-section {
+    gap: 0.15rem;
+  }
+  
+  .tool-button {
+    width: 38px;
+    height: 38px;
+  }
+  
+  .drawing-toolbar.below {
+    margin: 4px 0.6rem 0 0.6rem;
+    padding: 0.4rem 0.8rem;
+  }
+  
+  .drawing-controls {
+    gap: 0.6rem;
+    justify-content: center;
+  }
+  
+  .control-group label {
+    font-size: 0.75rem;
+    min-width: 35px;
+  }
+  
+  .size-slider, .opacity-slider {
+    width: 60px;
+  }
+  
+  .size-value, .opacity-value {
+    font-size: 0.75rem;
+    min-width: 25px;
+  }
+  
+  .shape-popover {
+    left: 50%;
+    transform: translateX(-50%);
+    grid-template-columns: 1fr 1fr;
+    min-width: 200px;
+  }
+}
 </style>

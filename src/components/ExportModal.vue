@@ -143,7 +143,7 @@ function downloadPdf() {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 2100; /* Above mobile panels */
 }
 .modal-content {
   background: var(--panel);
@@ -330,5 +330,75 @@ function downloadPdf() {
 
 .print-instructions li {
   margin-bottom: 0.25rem;
+}
+
+/* Mobile responsive export modal */
+@media (max-width: 768px) {
+  .modal-content {
+    width: 95vw;
+    max-width: 95vw;
+    max-height: 95vh;
+    padding: 1.5rem;
+  }
+  
+  .preview-container {
+    height: 50vh;
+  }
+  
+  .png-image {
+    width: 50%;
+    height: 50%;
+  }
+  
+  .pdf-preview {
+    width: 90%;
+    height: 90%;
+    min-height: 300px;
+  }
+  
+  .export-actions {
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+  
+  .download-button {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-content {
+    width: 98vw;
+    padding: 1rem;
+    border-radius: 6px;
+  }
+  
+  .modal-header h3 {
+    font-size: 1.1rem;
+  }
+  
+  .preview-container {
+    height: 45vh;
+  }
+  
+  .png-image {
+    width: 70%;
+    height: 70%;
+  }
+  
+  .print-instructions {
+    margin-top: 1rem;
+    padding: 0.8rem;
+  }
+  
+  .print-instructions h4 {
+    font-size: 0.75rem;
+  }
+  
+  .print-instructions ul {
+    font-size: 0.65rem;
+  }
 }
 </style>

@@ -190,7 +190,7 @@ function formatDate(date: Date): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 2100; /* Above mobile panels (z-index: 2000) */
 }
 
 .template-selector {
@@ -388,4 +388,65 @@ function formatDate(date: Date): string {
 .sample-card .thumb { display: flex; align-items: center; justify-content: center; height: 110px; background: #fff; }
 .sample-meta .name { font-weight: 600; }
 .sample-meta .desc { font-size: .85rem; opacity: .8; }
+
+/* Mobile responsive template selector */
+@media (max-width: 768px) {
+  .template-selector {
+    padding: 1.5rem;
+    max-width: 95vw;
+    max-height: 95vh;
+  }
+  
+  .main-content {
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  
+  .recent-projects {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding-right: 0;
+    padding-bottom: 1.5rem;
+  }
+  
+  .template-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .template-card {
+    padding: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .template-selector {
+    padding: 1rem;
+    border-radius: 6px;
+  }
+  
+  .template-header h2 {
+    font-size: 1.1rem;
+  }
+  
+  .template-header p {
+    font-size: 0.85rem;
+  }
+  
+  .samples-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .template-card {
+    padding: 0.6rem;
+  }
+  
+  .template-info h3 {
+    font-size: 0.9rem;
+  }
+  
+  .template-info p {
+    font-size: 0.8rem;
+  }
+}
 </style>

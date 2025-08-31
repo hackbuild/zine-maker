@@ -73,11 +73,13 @@ Comprehensive docs live in the `docs/` folder:
 - docs/08-contributing.md
 - docs/09-faq.md
 - docs/10-troubleshooting.md
+- docs/11-project-json-format.md
 
 Start with Getting Started and the User Guide:
 
 - Getting Started: docs/02-getting-started.md
 - User Guide: docs/03-user-guide.md
+- Project JSON Format: docs/11-project-json-format.md
 
 ## Project Structure (key files)
 

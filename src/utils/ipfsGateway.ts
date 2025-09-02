@@ -5,12 +5,14 @@ const GATEWAYS = [
 ];
 
 function toPath(cidOrName: string): string {
-  if (cidOrName.startsWith('ipns/')) return cidOrName;
-  if (cidOrName.startsWith('ipfs/')) return cidOrName;
-  if (cidOrName.startsWith('ipns:')) return `ipns/${cidOrName.slice(5)}`;
-  if (cidOrName.startsWith('ipfs:')) return `ipfs/${cidOrName.slice(5)}`;
-  if (cidOrName.startsWith('k51') || cidOrName.startsWith('bafy')) return `ipns/${cidOrName}`;
-  return `ipfs/${cidOrName}`;
+  const v = (cidOrName || '').trim();
+  if (!v) return 'ipfs/';
+  if (v.startsWith('ipns/')) return v;
+  if (v.startsWith('ipfs/')) return v;
+  if (v.startsWith('ipns:')) return `ipns/${v.slice(5)}`;
+  if (v.startsWith('ipfs:')) return `ipfs/${v.slice(5)}`;
+  if (v.startsWith('k51')) return `ipns/${v}`; // IPNS key
+  return `ipfs/${v}`; // default to IPFS CID
 }
 
 export async function fetchIpfsJson<T = any>(cidOrPath: string): Promise<T> {
@@ -31,6 +33,7 @@ export async function fetchIpfsJson<T = any>(cidOrPath: string): Promise<T> {
 
 export function gatewayUrl(cidOrPath: string): string {
   const path = toPath(cidOrPath);
+  if (path === 'ipfs/') return GATEWAYS[0]('ipfs');
   return GATEWAYS[0](path);
 }
 

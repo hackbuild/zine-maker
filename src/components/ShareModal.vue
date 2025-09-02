@@ -83,7 +83,7 @@
       </div>
 
       <div class="actions">
-        <button class="btn" @click="onPublish" :disabled="publishing">{{ publishing ? 'Publishing…' : 'Publish' }}</button>
+        <button class="btn" @click="onPublish" :disabled="publishing || publishDisabled">{{ publishing ? 'Publishing…' : 'Publish' }}</button>
         <a class="help-link" href="https://ssd.eff.org/module/creating-pgp-keys" target="_blank" rel="noopener noreferrer">How to create a PGP key</a>
       </div>
 
@@ -92,9 +92,9 @@
         <div class="row" v-if="result.projectCid"><strong>Project CID:</strong> <code>{{ result.projectCid }}</code></div>
         <div class="row" v-if="result.backupCid"><strong>Backup CID:</strong> <code>{{ result.backupCid }}</code></div>
         <div class="links">
-          <a :href="gatewayUrl(result.manifestCid)" target="_blank" rel="noopener">Open Manifest</a>
-          <a v-if="result.projectCid" :href="gatewayUrl(result.projectCid)" target="_blank" rel="noopener">Open Project</a>
-          <a v-if="result.backupCid" :href="gatewayUrl(result.backupCid)" target="_blank" rel="noopener">Open Backup</a>
+          <a v-if="result.manifestCid" :href="gatewayUrlSafe(result.manifestCid)" target="_blank" rel="noopener">Open Manifest</a>
+          <a v-if="result.projectCid" :href="gatewayUrlSafe(result.projectCid)" target="_blank" rel="noopener">Open Project</a>
+          <a v-if="result.backupCid" :href="gatewayUrlSafe(result.backupCid)" target="_blank" rel="noopener">Open Backup</a>
         </div>
       </div>
     </div>
@@ -132,8 +132,23 @@ function gatewayUrl(cid: string): string {
   return `https://ipfs.io/ipfs/${cid}`;
 }
 
+const publishDisabled = computed(() => {
+  if (pinProvider.value === 'none') return true; // require provider for now
+  return !pinToken.value.trim();
+});
+
+function gatewayUrlSafe(cid?: string): string {
+  const v = (cid || '').trim();
+  if (!v) return 'javascript:void(0)';
+  return gatewayUrl(v);
+}
+
 async function onPublish() {
   if (!projectStore.currentProject || publishing.value) return;
+  if (publishDisabled.value) {
+    alert('Please select a pin provider and enter a valid API token.');
+    return;
+  }
   publishing.value = true;
   result.value = null;
   try {
@@ -152,13 +167,13 @@ async function onPublish() {
         }
       },
       sign: shouldSign.value ? { privateKeyArmored: pgpPrivateKey.value, passphrase: pgpPassphrase.value } : undefined,
-      pin: pinProvider.value === 'none' ? undefined : { provider: pinProvider.value, token: pinToken.value },
+      pin: { provider: pinProvider.value as any, token: pinToken.value },
       includeBackup: includeBackup.value
     });
     result.value = res;
   } catch (err) {
     console.error(err);
-    alert('Publish failed. Check console for details.');
+    alert((err as any)?.message || 'Publish failed. Check console for details.');
   } finally {
     publishing.value = false;
   }

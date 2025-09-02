@@ -61,11 +61,11 @@
             <FileText :size="16" />
             <span>Markdown</span>
           </router-link>
-          <button @click="uiStore.openShareModal()" class="header-button header-button--green" title="Share to IPFS" aria-label="Share">
+          <button @click="uiStore.showShareModal = true" class="header-button header-button--green" title="Share to IPFS" aria-label="Share">
             <Upload :size="16" />
             <span>Share</span>
           </button>
-          <button @click="uiStore.openIpfsDirectoryModal()" class="header-button" title="Explore IPFS" aria-label="Explore">
+          <button @click="uiStore.showIpfsDirectoryModal = true" class="header-button" title="Explore IPFS" aria-label="Explore">
             <FolderOpen :size="16" />
             <span>Explore</span>
           </button>

@@ -96,8 +96,8 @@ export async function publishToIpfs(opts: PublishOptions): Promise<{ manifestCid
 }
 
 export async function fetchManifest(cid: string): Promise<ZineManifest> {
-  const { fetchIpfsJson } = await import('./ipfsGateway');
-  return fetchIpfsJson<ZineManifest>(cid);
+  const mod = await import('./ipfsGateway');
+  return mod.fetchIpfsJson<ZineManifest>(cid);
 }
 
 export async function verifyManifestSignature(manifest: ZineManifest): Promise<{ verified: boolean; reason?: string }> {
@@ -110,8 +110,8 @@ export async function verifyManifestSignature(manifest: ZineManifest): Promise<{
     let publicKeys: any[] = [];
     if (manifest.author?.pgp?.publicKeyArmoredCid) {
       try {
-        const { fetchIpfsJson, gatewayUrl } = await import('./ipfsGateway');
-        const res = await fetch(gatewayUrl(manifest.author.pgp.publicKeyArmoredCid));
+        const gmod = await import('./ipfsGateway');
+        const res = await fetch(gmod.gatewayUrl(manifest.author.pgp.publicKeyArmoredCid));
         const armored = await res.text();
         const pub = await openpgp.readKey({ armoredKey: armored });
         publicKeys = [pub];

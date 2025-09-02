@@ -29,13 +29,8 @@ export async function uploadDirectory(files: { path: string; content: Blob }[], 
     }
     return cids;
   }
-  // Fallback: use public gateway upload APIs are not reliable; as a placeholder, return empty
-  const map: Record<string, string> = {};
-  for (const f of files) {
-    // No pinning provider -> cannot upload; in real flow, integrate Helia + relay pinning
-    map[f.path] = '';
-  }
-  return map;
+  // No provider -> disallow upload to avoid empty CIDs
+  throw new Error('No pinning provider configured');
 }
 
 export async function uploadBytes(content: Blob, name: string, pin?: PinProvider): Promise<string> {

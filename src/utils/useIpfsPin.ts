@@ -3,13 +3,21 @@ import type { PublishOptions } from './useIpfs';
 type PinProvider = PublishOptions['pin'];
 
 export async function uploadDirectory(files: { path: string; content: Blob }[], pin?: PinProvider): Promise<Record<string, string>> {
-  if (pin?.provider === 'web3') {
-    const { Web3Storage } = await import('web3.storage');
-    const client = new Web3Storage({ token: pin.token });
+  if (pin?.provider === 'storacha') {
+    // Storacha simple upload loop: POST /upload for each file, read CID from response
     const cids: Record<string, string> = {};
     for (const f of files) {
-      const cid = await client.put([new File([f.content], f.path)], { wrapWithDirectory: false });
-      cids[f.path] = cid;
+      const form = new FormData();
+      form.append('file', f.content, f.path);
+      const res = await fetch('https://api.storacha.network/upload', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${pin.token}` },
+        body: form
+      });
+      if (!res.ok) throw new Error('Storacha upload failed');
+      const data = await res.json();
+      // Assume response like { cid: 'bafy...' }
+      cids[f.path] = data.cid || data.IpfsHash;
     }
     return cids;
   }

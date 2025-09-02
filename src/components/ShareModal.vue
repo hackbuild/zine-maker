@@ -64,7 +64,7 @@
           <div class="field">
             <label>Provider</label>
             <select v-model="pinProvider">
-              <option value="web3">web3.storage (token)</option>
+              <option value="storacha">Storacha (token)</option>
               <option value="pinata">Pinata (JWT)</option>
               <option value="none">Anonymous (gateway-only, not guaranteed)</option>
             </select>

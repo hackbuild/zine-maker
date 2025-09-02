@@ -1,7 +1,7 @@
 import type { ZineProject, ZineManifest } from '@/types';
 import { exportProjectById } from '@/utils/portableBackup';
 
-type PinProvider = { provider: 'web3' | 'pinata'; token: string };
+type PinProvider = { provider: 'storacha' | 'pinata'; token: string };
 
 export interface PublishOptions {
   project: ZineProject;

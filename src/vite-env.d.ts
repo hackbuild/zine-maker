@@ -1,3 +1,3 @@
 /// <reference types="vite/client" />
 
-declare module 'web3.storage';
+// storacha and pinata types are not provided; use runtime fetch

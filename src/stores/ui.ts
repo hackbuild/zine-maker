@@ -8,6 +8,8 @@ export const useUIStore = defineStore('ui', () => {
   const showImageUploadModal = ref(false);
   const showExportModal = ref(false);
   const showProjectsModal = ref(false);
+  const showShareModal = ref(false);
+  const showIpfsDirectoryModal = ref(false);
   const exportImageData = ref('');
   const exportImages = ref<string[]>([]);
   const exportImageWidth = ref(0);
@@ -36,6 +38,18 @@ export const useUIStore = defineStore('ui', () => {
   }
   function closeProjectsModal(): void {
     showProjectsModal.value = false;
+  }
+  function openShareModal(): void {
+    showShareModal.value = true;
+  }
+  function closeShareModal(): void {
+    showShareModal.value = false;
+  }
+  function openIpfsDirectoryModal(): void {
+    showIpfsDirectoryModal.value = true;
+  }
+  function closeIpfsDirectoryModal(): void {
+    showIpfsDirectoryModal.value = false;
   }
 
   function togglePageList(): void {
@@ -79,6 +93,8 @@ export const useUIStore = defineStore('ui', () => {
     showImageUploadModal,
     showExportModal,
     showProjectsModal,
+    showShareModal,
+    showIpfsDirectoryModal,
     exportImageData,
     exportImages,
     exportImageWidth,
@@ -97,6 +113,10 @@ export const useUIStore = defineStore('ui', () => {
     showTemplateSelectorModal,
     openProjectsModal,
     closeProjectsModal,
+    openShareModal,
+    closeShareModal,
+    openIpfsDirectoryModal,
+    closeIpfsDirectoryModal,
     togglePageList,
     toggleProperties,
     setZoom,

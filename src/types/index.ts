@@ -137,3 +137,30 @@ export interface Tool {
   icon: Component;
   shortcut: string;
 }
+
+// IPFS and sharing types
+export interface ZineManifest {
+  schema: 'v1';
+  title: string;
+  description?: string;
+  tags?: string[];
+  language?: string;
+  createdAt: string;
+  project: { cid: string; bytes?: number };
+  backup?: { cid: string; bytes?: number; optional?: boolean };
+  author?: {
+    name?: string;
+    url?: string;
+    contact?: string;
+    pgp?: { fingerprint?: string; publicKeyArmoredCid?: string };
+    feed?: { type: 'ipns'; name: string };
+  };
+  signature?: {
+    algo: 'openpgp';
+    createdAt: string;
+    canonicalization: 'JCS';
+    armored: string;
+  };
+  pinnedVia?: string[];
+  app?: { name: string; version: string };
+}

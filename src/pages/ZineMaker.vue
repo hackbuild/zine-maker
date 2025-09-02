@@ -15,6 +15,14 @@
       v-if="uiStore.showProjectsModal"
       @close="uiStore.closeProjectsModal()"
     />
+    <ShareModal
+      v-if="uiStore.showShareModal"
+      @close="uiStore.closeShareModal()"
+    />
+    <IpfsDirectoryModal
+      v-if="uiStore.showIpfsDirectoryModal"
+      @close="uiStore.closeIpfsDirectoryModal()"
+    />
 
     <TemplateSelector v-if="uiStore.showTemplateSelector" />
     <div v-if="uiStore.showStorageNotice" class="notice-overlay" @click.self="uiStore.closeStorageNotice()">
@@ -53,6 +61,14 @@
             <FileText :size="16" />
             <span>Markdown</span>
           </router-link>
+          <button @click="uiStore.openShareModal()" class="header-button header-button--green" title="Share to IPFS" aria-label="Share">
+            <Upload :size="16" />
+            <span>Share</span>
+          </button>
+          <button @click="uiStore.openIpfsDirectoryModal()" class="header-button" title="Explore IPFS" aria-label="Explore">
+            <FolderOpen :size="16" />
+            <span>Explore</span>
+          </button>
           <button @click="uiStore.showTemplateSelectorModal()" class="header-button header-button--red" title="New Project">
             <FilePlus :size="16" />
             <span>New Project</span>
@@ -95,11 +111,13 @@ import PropertiesPanel from '@/components/properties/PropertiesPanel.vue';
 import PageList from '@/components/PageList.vue';
 import ImageUploadModal from '@/components/ImageUploadModal.vue';
 import ExportModal from '@/components/ExportModal.vue';
+import ShareModal from '@/components/ShareModal.vue';
+import IpfsDirectoryModal from '@/components/IpfsDirectoryModal.vue';
 import RssAudioPlayer from '@/components/RssAudioPlayer.vue';
 import { useProjectStore } from '@/stores/project';
 import { useUIStore } from '@/stores/ui';
 import { useToolsStore } from '@/stores/tools';
-import { FilePlus, FolderOpen, Github, Save, Sidebar, Sliders, FileText } from 'lucide-vue-next';
+import { FilePlus, FolderOpen, Github, Save, Sidebar, Sliders, FileText, Upload } from 'lucide-vue-next';
 // @ts-ignore - Vue SFC type shim might be missing in this project setup
 import ProjectsModal from '@/components/ProjectsModal.vue';
 import { useAssetStore } from '@/stores/assetStore';

@@ -22,40 +22,12 @@
           <div v-if="showSamplesOnboarding" class="samples-onboarding">
             <h4>Start from a ready-made sample</h4>
             <div class="samples-grid">
-              <div class="sample-card">
+              <div class="sample-card" v-for="s in sampleCards" :key="s.id">
                 <div class="sample-meta">
-                  <div class="name">Lock It Down</div>
-                  <div class="desc">Digital security & privacy primer (half‑fold)</div>
+                  <div class="name">{{ s.name }}</div>
+                  <div class="desc">{{ s.description }}</div>
                 </div>
-                <button class="btn" @click="createFromSample('security-half-fold')">Create from sample</button>
-              </div>
-              <div class="sample-card">
-                <div class="sample-meta">
-                  <div class="name">Zines: Voices from the Underground</div>
-                  <div class="desc">8‑page mini about zine culture</div>
-                </div>
-                <button class="btn" @click="createFromSample('oss-mini')">Create from sample</button>
-              </div>
-              <div class="sample-card">
-                <div class="sample-meta">
-                  <div class="name">OPSEC Field Guide</div>
-                  <div class="desc">8‑page pocket zine: digital safety for organizers</div>
-                </div>
-                <button class="btn" @click="createFromSample('opsec-mini')">Create from sample</button>
-              </div>
-              <div class="sample-card">
-                <div class="sample-meta">
-                  <div class="name">ICE: Know Your Rights</div>
-                  <div class="desc">8‑page pocket guide on rights and safer interactions</div>
-                </div>
-                <button class="btn" @click="createFromSample('ice-kyr-mini')">Create from sample</button>
-              </div>
-              <div class="sample-card">
-                <div class="sample-meta">
-                  <div class="name">Color‑Play</div>
-                  <div class="desc">Poem by Mahad Zara (4‑page half‑fold)</div>
-                </div>
-                <button class="btn" @click="createFromSample('color-play')">Create from sample</button>
+                <button class="btn" @click="createFromSample(s.id)">Create from sample</button>
               </div>
             </div>
           </div>
@@ -113,6 +85,7 @@ const selectedTemplate = ref<ZineTemplate | null>(null);
 const projectName = ref('');
 const recentProjects = ref<ZineProject[]>([]);
 const showSamplesOnboarding = ref(false);
+const sampleCards = ref<{ id: string; name: string; description: string }[]>([]);
 
 let onKey: ((e: KeyboardEvent) => void) | null = null;
 
@@ -124,6 +97,8 @@ onMounted(async () => {
   window.addEventListener('keydown', onKey);
   // Auto-generate a project name when the modal opens
   projectName.value = generateName();
+  // Load dynamic sample cards
+  try { const { getSamples } = await import('@/utils/sampleZines'); sampleCards.value = await getSamples(); } catch {}
   // Show samples whenever there are zero projects; still show storage notice once
   try {
     if (recentProjects.value.length === 0) {
@@ -152,7 +127,7 @@ function createProject(): void {
 
 async function createFromSample(id: string) {
   const { createSample } = await import('@/utils/sampleZines');
-  const project = createSample(id);
+  const project = await createSample(id);
   if (!project) return;
   projectStore.loadProject(project);
   uiStore.hideTemplateSelector();

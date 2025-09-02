@@ -79,7 +79,7 @@ let onKey: ((e: KeyboardEvent) => void) | null = null;
 const importInput = ref<HTMLInputElement | null>(null);
 const importOneInput = ref<HTMLInputElement | null>(null);
 const showSamples = ref(false);
-const samples = ref<{ id: string; name: string; description: string; thumbnail: string }[]>([]);
+const samples = ref<{ id: string; name: string; description: string }[]>([]);
 const showConfirm = ref(false);
 const confirmText = ref('');
 
@@ -183,7 +183,7 @@ function toggleSamples() { showSamples.value = !showSamples.value; }
 
 async function loadSample(id: string) {
   const { createSample } = await import('@/utils/sampleZines');
-  const project = createSample(id);
+  const project = await createSample(id);
   if (!project) return;
   await saveProject(project);
   await refresh();
@@ -203,7 +203,7 @@ async function confirmDeleteAll() {
 onMounted(() => {
   refresh();
   // lazy load sample list
-  import('@/utils/sampleZines').then(({ getSamples }) => { samples.value = getSamples(); });
+  import('@/utils/sampleZines').then(async ({ getSamples }) => { samples.value = await getSamples(); });
   onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
   window.addEventListener('keydown', onKey);
 });

@@ -69,6 +69,9 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>
         </button>
       </div>
+      <button class="tool-button trash-button" :class="{ active: hasSelection }" :disabled="!hasSelection" @click="deleteSelected" title="Delete selected" ref="trashZoneRef">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+      </button>
     </div>
   </div>
   <div v-if="toolsStore.activeTool === 'draw'" class="drawing-toolbar below">
@@ -111,7 +114,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, markRaw, type Component, computed } from 'vue';
+import { ref, markRaw, type Component, computed, onMounted, onUnmounted } from 'vue';
 import { useToolsStore } from '@/stores/tools';
 import { useUIStore } from '@/stores/ui';
 import { onClickOutside } from '@vueuse/core';
@@ -122,12 +125,49 @@ import { useProjectStore } from '@/stores/project';
 const toolsStore = useToolsStore();
 const uiStore = useUIStore();
 const projectStore = useProjectStore();
+// Trash drop zone logic
+const trashZoneRef = ref<HTMLElement | null>(null);
+const isDraggingOverTrash = ref(false);
+
+function handleDragOver(e: DragEvent) {
+  if (!e.dataTransfer) return;
+  if (e.dataTransfer.types.includes('application/x-zine-content-id')) {
+    e.preventDefault();
+    isDraggingOverTrash.value = true;
+  }
+}
+function handleDragLeave() {
+  isDraggingOverTrash.value = false;
+}
+function handleDrop(e: DragEvent) {
+  isDraggingOverTrash.value = false;
+  if (!e.dataTransfer) return;
+  const id = e.dataTransfer.getData('application/x-zine-content-id');
+  if (id) projectStore.deleteContent(id);
+}
+
+onMounted(() => {
+  const el = trashZoneRef.value;
+  if (!el) return;
+  el.addEventListener('dragover', handleDragOver);
+  el.addEventListener('dragleave', handleDragLeave);
+  el.addEventListener('drop', handleDrop);
+});
+onUnmounted(() => {
+  const el = trashZoneRef.value;
+  if (!el) return;
+  el.removeEventListener('dragover', handleDragOver);
+  el.removeEventListener('dragleave', handleDragLeave);
+  el.removeEventListener('drop', handleDrop);
+});
 
 const projectStoreCanUndo = computed(() => projectStore.canUndo);
 const projectStoreCanRedo = computed(() => projectStore.canRedo);
+const hasSelection = computed(() => projectStore.selectedContentIds.length > 0);
 
 function undo(){ if (projectStoreCanUndo.value) projectStore.undo(); }
 function redo(){ if (projectStoreCanRedo.value) projectStore.redo(); }
+function deleteSelected(){ if (!hasSelection.value) return; [...projectStore.selectedContentIds].forEach(id => projectStore.deleteContent(id)); }
 
 const isShapePopoverVisible = ref(false);
 const shapePopoverRef = ref(null);
@@ -328,6 +368,11 @@ function updateDrawingSetting(key: string, value: any) {
 /* history controls match toolbar */
 .history-controls { display: flex; gap: 0.25rem; margin-left: 0.5rem; }
 .history-controls .tool-button[disabled] { opacity: 0.4; cursor: not-allowed; }
+
+/* Trash button */
+.trash-button { margin-left: auto; border: 1px solid var(--border-soft); }
+.trash-button.active { background: #fee2e2; color: #b91c1c; border-color: #ef4444; }
+.trash-button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Mobile responsive toolbar */
 @media (max-width: 768px) {

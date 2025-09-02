@@ -74,6 +74,7 @@ Comprehensive docs live in the `docs/` folder:
 - docs/09-faq.md
 - docs/10-troubleshooting.md
 - docs/11-project-json-format.md
+ - docs/12-samples-and-manifest.md
 
 Start with Getting Started and the User Guide:
 

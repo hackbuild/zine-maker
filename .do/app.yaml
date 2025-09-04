@@ -29,3 +29,15 @@ functions:
         scope: RUN_TIME
         value: ""
 
+static_sites:
+  - name: web
+    github:
+      repo: YOUR_GITHUB_ORG_OR_USER/YOUR_REPO_NAME
+      branch: ipfs-share
+      deploy_on_push: true
+    source_dir: .
+    build_command: npm ci && npm run build
+    output_dir: dist
+    routes:
+      - path: /
+

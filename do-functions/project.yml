@@ -7,4 +7,7 @@ packages:
       - name: registry
         runtime: 'nodejs:default'
         web: true
+      - name: envcheck
+        runtime: 'nodejs:default'
+        web: true
 

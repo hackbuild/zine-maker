@@ -13,21 +13,17 @@ functions:
       - key: PINATA_JWT
         scope: RUN_TIME
         type: SECRET
-        value: ""
       - key: PINATA_API_KEY
         scope: RUN_TIME
         type: SECRET
-        value: ""
       - key: PINATA_API_SECRET
         scope: RUN_TIME
         type: SECRET
-        value: ""
       - key: PINATA_GATEWAY_BASE
         scope: RUN_TIME
         value: "https://gateway.pinata.cloud"
       - key: REGISTRY_CID
         scope: RUN_TIME
-        value: ""
 
 static_sites:
   - name: web

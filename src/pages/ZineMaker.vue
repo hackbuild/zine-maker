@@ -63,9 +63,8 @@
           <button @click="uiStore.showShareModal = true" class="header-button header-button--green icon-only" title="Share to IPFS" aria-label="Share">
             <Upload :size="16" />
           </button>
-          <button @click="uiStore.showIpfsDirectoryModal = true" class="header-button" title="Explore IPFS" aria-label="Explore">
-            <FolderOpen :size="16" />
-            <span>Explore</span>
+          <button @click="uiStore.showIpfsDirectoryModal = true" class="header-button icon-only" title="Explore IPFS" aria-label="Explore">
+            <Search :size="16" />
           </button>
           <button @click="uiStore.showTemplateSelectorModal()" class="header-button header-button--red" title="New Project">
             <FilePlus :size="16" />
@@ -115,7 +114,7 @@ import RssAudioPlayer from '@/components/RssAudioPlayer.vue';
 import { useProjectStore } from '@/stores/project';
 import { useUIStore } from '@/stores/ui';
 import { useToolsStore } from '@/stores/tools';
-import { FilePlus, FolderOpen, Github, Save, Sidebar, Sliders, FileText, Upload } from 'lucide-vue-next';
+import { FilePlus, Github, Save, Sidebar, Sliders, FileText, Upload, Search } from 'lucide-vue-next';
 // @ts-ignore - Vue SFC type shim might be missing in this project setup
 import ProjectsModal from '@/components/ProjectsModal.vue';
 import { useAssetStore } from '@/stores/assetStore';

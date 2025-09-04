@@ -29,7 +29,7 @@ import { ref, onMounted } from 'vue';
 
 defineEmits<{ (e: 'close'): void }>();
 
-const cid = ref('bafkreibozw3oc5a6vd5djsh5s22uguswes45dc4vpc5rvq5emgycjwyzsu');
+const cid = ref('');
 const items = ref<{ cid: string; title: string; description?: string }[]>([]);
 
 function toPinataPath(v: string): string {
@@ -45,12 +45,31 @@ function toPinataPath(v: string): string {
 
 async function load() {
   const v = cid.value.trim();
-  if (!v) return;
+  // If user entered a CID/IPNS, fetch directly from Pinata
+  if (v) {
+    try {
+      const base = 'https://gateway.pinata.cloud';
+      const url = `${base}/${toPinataPath(v)}`;
+      const res = await fetch(url, { redirect: 'follow' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const list = Array.isArray(data?.items) ? data.items : (Array.isArray(data?.entries) ? data.entries : []);
+      items.value = list.map((i: any) => ({
+        cid: i.cid || i.manifestCid || i.project?.cid || i.id,
+        title: i.title || i.name || i.project?.title || (i.cid || i.manifestCid || ''),
+        description: i.description
+      })).filter((i: any) => typeof i.cid === 'string' && i.cid);
+      return;
+    } catch (e) {
+      console.error(e);
+      alert('Failed to load directory');
+      return;
+    }
+  }
+  // Otherwise, fetch latest registry by Pinata file name via our backend
   try {
-    // Prefer Pinata gateway for the registry manifest (faster availability)
-    const base = 'https://gateway.pinata.cloud';
-    const url = `${base}/${toPinataPath(v)}`;
-    const res = await fetch(url, { redirect: 'follow' });
+    const apiBase = window.location.origin.replace(/\/$/, '');
+    const res = await fetch(`${apiBase}/api/zine/registry?name=zeenster-manifest.json`, { redirect: 'follow' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const list = Array.isArray(data?.items) ? data.items : (Array.isArray(data?.entries) ? data.entries : []);

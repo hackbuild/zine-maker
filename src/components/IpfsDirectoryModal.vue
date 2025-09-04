@@ -26,7 +26,6 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { fetchIpfsJson, gatewayUrl } from '@/utils/ipfsGateway';
 
 defineEmits<{ (e: 'close'): void }>();
 

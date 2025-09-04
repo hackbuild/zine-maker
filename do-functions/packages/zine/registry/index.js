@@ -51,10 +51,26 @@ exports.main = async function (params) {
     const token = process.env.PINATA_JWT || params.PINATA_JWT;
     const apiKey = process.env.PINATA_API_KEY || params.PINATA_API_KEY;
     const apiSecret = process.env.PINATA_API_SECRET || params.PINATA_API_SECRET;
-    const registryCid = process.env.REGISTRY_CID || params.REGISTRY_CID;
+    let registryCid = process.env.REGISTRY_CID || params.REGISTRY_CID || params.cid;
     const gatewayBase = process.env.PINATA_GATEWAY_BASE || params.PINATA_GATEWAY_BASE || 'https://gateway.pinata.cloud';
 
     if (method === 'GET') {
+      // Optional lookup by Pinata file name (latest pinned)
+      const byName = params.name || params.filename;
+      if (byName && (token || (apiKey && apiSecret))) {
+        try {
+          const searchUrl = `https://api.pinata.cloud/data/pinList?status=pinned&metadata[name]=${encodeURIComponent(byName)}&pageLimit=1&sort=created_at&direction=desc`;
+          const headers = token
+            ? { Authorization: `Bearer ${token}` }
+            : { 'pinata_api_key': apiKey, 'pinata_secret_api_key': apiSecret };
+          const sres = await fetch(searchUrl, { headers });
+          if (sres.ok) {
+            const sjson = await sres.json();
+            const row = (sjson?.rows || [])[0];
+            if (row?.ipfs_pin_hash) registryCid = row.ipfs_pin_hash;
+          }
+        } catch {}
+      }
       if (!registryCid) {
         return { statusCode: 404, headers: TEXT_HEADERS, body: { error: 'No registry CID configured' } };
       }

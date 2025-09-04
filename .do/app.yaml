@@ -1,0 +1,31 @@
+name: zine-maker-ipfs-share-functions
+region: nyc
+functions:
+  - name: ipfs-functions
+    github:
+      repo: YOUR_GITHUB_ORG_OR_USER/YOUR_REPO_NAME
+      branch: ipfs-share
+      deploy_on_push: true
+    source_dir: do-functions
+    routes:
+      - path: /api/
+    envs:
+      - key: PINATA_JWT
+        scope: RUN_TIME
+        type: SECRET
+        value: ""
+      - key: PINATA_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: ""
+      - key: PINATA_API_SECRET
+        scope: RUN_TIME
+        type: SECRET
+        value: ""
+      - key: PINATA_GATEWAY_BASE
+        scope: RUN_TIME
+        value: "https://gateway.pinata.cloud"
+      - key: REGISTRY_CID
+        scope: RUN_TIME
+        value: ""
+

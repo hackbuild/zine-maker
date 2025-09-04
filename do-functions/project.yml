@@ -1,0 +1,10 @@
+packages:
+  - name: zine
+    actions:
+      - name: publish
+        runtime: 'nodejs:default'
+        web: true
+      - name: registry
+        runtime: 'nodejs:default'
+        web: true
+

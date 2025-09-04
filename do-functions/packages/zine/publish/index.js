@@ -37,6 +37,17 @@ async function pinJsonToIpfs(content, token, key, secret) {
   return cid;
 }
 
+function toPath(cidOrName) {
+  const v = (cidOrName || '').trim();
+  if (!v) return 'ipfs/';
+  if (v.startsWith('ipns/')) return v;
+  if (v.startsWith('ipfs/')) return v;
+  if (v.startsWith('ipns:')) return `ipns/${v.slice(5)}`;
+  if (v.startsWith('ipfs:')) return `ipfs/${v.slice(5)}`;
+  if (v.startsWith('k51')) return `ipns/${v}`;
+  return `ipfs/${v}`;
+}
+
 exports.main = async function (params) {
   // CORS preflight
   if ((params.__ow_method || '').toUpperCase() === 'OPTIONS') {
@@ -97,6 +108,36 @@ exports.main = async function (params) {
     // Upload manifest as JSON
     const manifestCid = await pinJsonToIpfs(manifest, token, apiKey, apiSecret);
 
+    // Optionally update global registry (merge append)
+    let newRegistryCid;
+    const registryCid = process.env.REGISTRY_CID || params.REGISTRY_CID;
+    const gatewayBase = (process.env.PINATA_GATEWAY_BASE || params.PINATA_GATEWAY_BASE || 'https://gateway.pinata.cloud').replace(/\/$/, '');
+    if (registryCid) {
+      try {
+        const url = `${gatewayBase}/${toPath(registryCid)}`;
+        const res = await fetch(url, { redirect: 'follow' });
+        let current = { schema: 'v1', entries: [] };
+        if (res.ok) {
+          try { current = await res.json(); } catch {}
+        }
+        const add = {
+          title: manifest.title,
+          manifestCid,
+          description: manifest.description,
+          tags: manifest.tags || [],
+          createdAt: new Date().toISOString()
+        };
+        const byKey = new Map();
+        for (const e of Array.isArray(current.entries) ? current.entries : []) {
+          const key = e.manifestCid || e.cid || e.id || e.title;
+          if (key && key !== manifestCid) byKey.set(key, e);
+        }
+        byKey.set(manifestCid, add);
+        current.entries = Array.from(byKey.values());
+        newRegistryCid = await pinJsonToIpfs(current, token, apiKey, apiSecret);
+      } catch {}
+    }
+
     const pinataBase = (process.env.PINATA_GATEWAY_BASE || params.PINATA_GATEWAY_BASE || 'https://gateway.pinata.cloud').replace(/\/$/, '');
     const toIpfs = (cid) => cid ? `https://ipfs.io/ipfs/${cid}` : undefined;
     const toPinata = (cid) => cid ? `${pinataBase}/ipfs/${cid}` : undefined;
@@ -109,7 +150,7 @@ exports.main = async function (params) {
     return {
       statusCode: 200,
       headers: TEXT_HEADERS,
-      body: { manifestCid, projectCid, backupCid, links }
+      body: { manifestCid, projectCid, backupCid, links, registryCid: newRegistryCid || registryCid }
     };
   } catch (e) {
     return {

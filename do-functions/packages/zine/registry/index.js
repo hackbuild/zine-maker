@@ -17,19 +17,18 @@ function gatewayUrl(base, cid) {
   return b ? `${b}/${path}` : `https://ipfs.io/${path}`;
 }
 
-async function pinataUpload(token, name, content, contentType = 'application/json', key, secret) {
-  const form = new FormData();
-  form.append('file', new Blob([content], { type: contentType }), name);
-  const res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+async function pinataUploadJson(token, content, key, secret) {
+  const headers = token
+    ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+    : (key && secret ? { 'pinata_api_key': key, 'pinata_secret_api_key': secret, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' });
+  const res = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
     method: 'POST',
-    headers: token
-      ? { Authorization: `Bearer ${token}` }
-      : (key && secret ? { 'pinata_api_key': key, 'pinata_secret_api_key': secret } : {}),
-    body: form
+    headers,
+    body: JSON.stringify({ pinataContent: content })
   });
   if (!res.ok) {
     const t = await res.text().catch(() => '');
-    throw new Error(`Pinata upload failed (${res.status}): ${t}`);
+    throw new Error(`Pinata JSON upload failed (${res.status}): ${t}`);
   }
   const data = await res.json();
   return data.IpfsHash || data.cid;
@@ -100,11 +99,11 @@ exports.main = async function (params) {
         current.entries = Array.from(byKey.values());
       }
 
-      const newJson = JSON.stringify(current);
+      const newJson = current;
       if (!token && !(apiKey && apiSecret)) {
         return { statusCode: 400, headers: TEXT_HEADERS, body: { error: 'Missing Pinata credentials' } };
       }
-      const newCid = await pinataUpload(token, 'zine-registry.json', newJson, 'application/json', apiKey, apiSecret);
+      const newCid = await pinataUploadJson(token, newJson, apiKey, apiSecret);
 
       return { statusCode: 200, headers: TEXT_HEADERS, body: { registryCid: newCid, entries: current.entries?.length || 0 } };
     }

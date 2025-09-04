@@ -11,25 +11,20 @@ const TEXT_HEADERS = {
   'Access-Control-Allow-Headers': 'content-type,authorization'
 };
 
-async function pinataUpload(url, token, formData, key, secret) {
-  const res = await fetch(url, {
+async function pinJsonToIpfs(content, token, key, secret) {
+  const headers = token
+    ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+    : (key && secret ? { 'pinata_api_key': key, 'pinata_secret_api_key': secret, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' });
+  const res = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
     method: 'POST',
-    headers: token
-      ? { Authorization: `Bearer ${token}` }
-      : (key && secret ? { 'pinata_api_key': key, 'pinata_secret_api_key': secret } : {}),
-    body: formData
+    headers,
+    body: JSON.stringify({ pinataContent: content })
   });
   if (!res.ok) {
     const t = await res.text().catch(() => '');
-    throw new Error(`Pinata upload failed (${res.status}): ${t}`);
+    throw new Error(`Pinata JSON upload failed (${res.status}): ${t}`);
   }
-  return res.json();
-}
-
-async function uploadBytes(name, contentBlob, token, key, secret) {
-  const form = new FormData();
-  form.append('file', contentBlob, name);
-  const data = await pinataUpload('https://api.pinata.cloud/pinning/pinFileToIPFS', token, form, key, secret);
+  const data = await res.json();
   const cid = data.IpfsHash || data.cid;
   if (!cid) throw new Error('Missing CID in Pinata response');
   return cid;
@@ -62,13 +57,12 @@ exports.main = async function (params) {
     // Serialize project
     const projectJson = JSON.stringify(project, (_k, v) => (v && v.toISOString ? v.toISOString() : v));
 
-    // Upload project.json (and optional backup.json if provided by caller)
-    const projectCid = await uploadBytes('project.json', new Blob([projectJson], { type: 'application/json' }), token, apiKey, apiSecret);
+    // Upload project as JSON
+    const projectCid = await pinJsonToIpfs(JSON.parse(projectJson), token, apiKey, apiSecret);
 
     let backupCid;
     if (payload.backup) {
-      const backupJson = JSON.stringify(payload.backup);
-      backupCid = await uploadBytes('backup.json', new Blob([backupJson], { type: 'application/json' }), token, apiKey, apiSecret);
+      backupCid = await pinJsonToIpfs(payload.backup, token, apiKey, apiSecret);
     }
 
     // Build manifest aligned with src/types ZineManifest
@@ -86,20 +80,15 @@ exports.main = async function (params) {
       app: { name: 'Zine Maker', version: '0.0.0' }
     };
 
-    // Optionally upload embedded public key
-    if (manifest.author?.pgp?.publicKeyArmored) {
-      const pubCid = await uploadBytes('pubkey.asc', new Blob([manifest.author.pgp.publicKeyArmored], { type: 'text/plain' }), token, apiKey, apiSecret);
-      manifest.author.pgp.publicKeyArmoredCid = pubCid;
-      delete manifest.author.pgp.publicKeyArmored;
-    }
+    // Note: Skipping upload of embedded public key to avoid FormData; optional feature can be re-added with a multipart client if needed
 
     // Optionally sign manifest: caller can send precomputed signature
     if (payload.signature && payload.signature.armored) {
       manifest.signature = payload.signature;
     }
 
-    // Upload manifest
-    const manifestCid = await uploadBytes('manifest.json', new Blob([JSON.stringify(manifest)], { type: 'application/json' }), token, apiKey, apiSecret);
+    // Upload manifest as JSON
+    const manifestCid = await pinJsonToIpfs(manifest, token, apiKey, apiSecret);
 
     return {
       statusCode: 200,

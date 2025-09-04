@@ -30,7 +30,7 @@ import { fetchIpfsJson, gatewayUrl } from '@/utils/ipfsGateway';
 
 defineEmits<{ (e: 'close'): void }>();
 
-const cid = ref('');
+const cid = ref('bafkreibozw3oc5a6vd5djsh5s22uguswes45dc4vpc5rvq5emgycjwyzsu');
 const items = ref<{ cid: string; title: string; description?: string }[]>([]);
 
 async function load() {

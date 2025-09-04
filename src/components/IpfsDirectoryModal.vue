@@ -33,12 +33,24 @@ defineEmits<{ (e: 'close'): void }>();
 const cid = ref('bafkreibozw3oc5a6vd5djsh5s22uguswes45dc4vpc5rvq5emgycjwyzsu');
 const items = ref<{ cid: string; title: string; description?: string }[]>([]);
 
+function toPinataPath(v: string): string {
+  const x = (v || '').trim();
+  if (!x) return 'ipfs/';
+  if (x.startsWith('ipns/')) return x;
+  if (x.startsWith('ipfs/')) return x;
+  if (x.startsWith('ipns:')) return `ipns/${x.slice(5)}`;
+  if (x.startsWith('ipfs:')) return `ipfs/${x.slice(5)}`;
+  if (x.startsWith('k51')) return `ipns/${x}`; // IPNS name
+  return `ipfs/${x}`;
+}
+
 async function load() {
   const v = cid.value.trim();
   if (!v) return;
   try {
     // Prefer Pinata gateway for the registry manifest (faster availability)
-    const url = `https://gateway.pinata.cloud/ipfs/${v}`;
+    const base = 'https://gateway.pinata.cloud';
+    const url = `${base}/${toPinataPath(v)}`;
     const res = await fetch(url, { redirect: 'follow' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();

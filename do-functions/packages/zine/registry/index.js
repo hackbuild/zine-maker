@@ -1,4 +1,6 @@
 'use strict';
+// Ensure Blob exists in Node runtime (DO Functions) by polyfilling from buffer
+try { if (typeof Blob === 'undefined') { global.Blob = require('buffer').Blob; } } catch {}
 
 // Web-exported function to fetch or update a global zine registry manifest stored on IPFS.
 // Uses Pinata JWT for uploads. Reads existing manifest from IPFS gateways.

@@ -1,6 +1,8 @@
 'use strict';
 // Ensure Blob exists in Node runtime (DO Functions) by polyfilling from buffer
 try { if (typeof Blob === 'undefined') { global.Blob = require('buffer').Blob; } } catch {}
+// Ensure fetch exists in Node runtime
+try { if (typeof fetch === 'undefined') { global.fetch = require('node-fetch'); } } catch {}
 
 // DigitalOcean Functions (OpenWhisk) action entry
 // Web-exported; expects JSON body. Publishes a project/manifest to IPFS via Pinata.

@@ -11,28 +11,10 @@ packages:
       - name: publish
         runtime: 'nodejs:default'
         web: true
-        inputs:
-          PINATA_JWT: ${env:PINATA_JWT}
-          PINATA_API_KEY: ${env:PINATA_API_KEY}
-          PINATA_API_SECRET: ${env:PINATA_API_SECRET}
-          PINATA_GATEWAY_BASE: ${env:PINATA_GATEWAY_BASE}
-          REGISTRY_CID: ${env:REGISTRY_CID}
       - name: registry
         runtime: 'nodejs:default'
         web: true
-        inputs:
-          PINATA_JWT: ${env:PINATA_JWT}
-          PINATA_API_KEY: ${env:PINATA_API_KEY}
-          PINATA_API_SECRET: ${env:PINATA_API_SECRET}
-          PINATA_GATEWAY_BASE: ${env:PINATA_GATEWAY_BASE}
-          REGISTRY_CID: ${env:REGISTRY_CID}
       - name: envcheck
         runtime: 'nodejs:default'
         web: true
-        inputs:
-          PINATA_JWT: ${env:PINATA_JWT}
-          PINATA_API_KEY: ${env:PINATA_API_KEY}
-          PINATA_API_SECRET: ${env:PINATA_API_SECRET}
-          PINATA_GATEWAY_BASE: ${env:PINATA_GATEWAY_BASE}
-          REGISTRY_CID: ${env:REGISTRY_CID}
 

@@ -59,21 +59,7 @@
           </div>
         </div>
 
-        <div class="section">
-          <h4>Pinning</h4>
-          <div class="field">
-            <label>Provider</label>
-            <select v-model="pinProvider">
-              <option value="storacha">Storacha (token)</option>
-              <option value="pinata">Pinata (JWT)</option>
-              <option value="none">Anonymous (gateway-only, not guaranteed)</option>
-            </select>
-          </div>
-          <div class="field" v-if="pinProvider !== 'none'">
-            <label>API Token</label>
-            <input v-model="pinToken" type="password" placeholder="Enter token (stored locally for this session)" />
-          </div>
-        </div>
+        
 
         <div class="field">
           <label class="checkbox">
@@ -123,8 +109,6 @@ const pgpPrivateKey = ref('');
 const pgpPassphrase = ref('');
 
 const includeBackup = ref(false);
-const pinProvider = ref<'web3'|'pinata'|'none'>('none');
-const pinToken = ref('');
 
 const publishing = ref(false);
 const result = ref<{ manifestCid: string; projectCid?: string; backupCid?: string } | null>(null);

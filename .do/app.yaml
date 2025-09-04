@@ -9,21 +9,7 @@ functions:
     source_dir: do-functions
     routes:
       - path: /api/
-    envs:
-      - key: PINATA_JWT
-        scope: RUN_TIME
-        type: SECRET
-      - key: PINATA_API_KEY
-        scope: RUN_TIME
-        type: SECRET
-      - key: PINATA_API_SECRET
-        scope: RUN_TIME
-        type: SECRET
-      - key: PINATA_GATEWAY_BASE
-        scope: RUN_TIME
-        value: "https://gateway.pinata.cloud"
-      - key: REGISTRY_CID
-        scope: RUN_TIME
+    envs: []
 
 static_sites:
   - name: web

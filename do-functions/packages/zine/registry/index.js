@@ -24,6 +24,25 @@ function gatewayUrl(base, cid) {
   return b ? `${b}/${path}` : `https://ipfs.io/${path}`;
 }
 
+async function fetchRegistryJsonWithFallback(cid, preferredBase) {
+  const bases = Array.from(new Set([
+    (preferredBase || '').replace(/\/$/, ''),
+    'https://ipfs.io',
+    'https://cloudflare-ipfs.com',
+    'https://dweb.link'
+  ].filter(Boolean)));
+  let lastErr;
+  for (const base of bases) {
+    try {
+      const url = gatewayUrl(base, cid);
+      const res = await fetch(url, { redirect: 'follow' });
+      if (!res.ok) { lastErr = new Error(`HTTP ${res.status}`); continue; }
+      return await res.json();
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('Failed to fetch registry');
+}
+
 async function pinataUploadJson(token, content, key, secret) {
   const headers = token
     ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
@@ -74,13 +93,12 @@ exports.main = async function (params) {
       if (!registryCid) {
         return { statusCode: 404, headers: TEXT_HEADERS, body: { error: 'No registry CID configured' } };
       }
-      const url = gatewayUrl(gatewayBase, registryCid);
-      const res = await fetch(url, { method: 'GET' });
-      if (!res.ok) {
-        return { statusCode: res.status, headers: TEXT_HEADERS, body: { error: `Fetch failed ${res.status}` } };
+      try {
+        const json = await fetchRegistryJsonWithFallback(registryCid, gatewayBase);
+        return { statusCode: 200, headers: TEXT_HEADERS, body: json };
+      } catch (e) {
+        return { statusCode: 502, headers: TEXT_HEADERS, body: { error: e?.message || 'Fetch failed' } };
       }
-      const json = await res.json();
-      return { statusCode: 200, headers: TEXT_HEADERS, body: json };
     }
 
     if (method === 'POST') {
@@ -98,9 +116,7 @@ exports.main = async function (params) {
       let current = { schema: 'v1', entries: [] };
       if (mode === 'merge' && registryCid) {
         try {
-          const url = gatewayUrl(gatewayBase, registryCid);
-          const res = await fetch(url);
-          if (res.ok) current = await res.json();
+          current = await fetchRegistryJsonWithFallback(registryCid, gatewayBase);
         } catch {}
       }
 

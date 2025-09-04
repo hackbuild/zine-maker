@@ -81,6 +81,10 @@
           <a v-if="result.manifestCid" :href="gatewayUrlSafe(result.manifestCid)" target="_blank" rel="noopener">Open Manifest</a>
           <a v-if="result.projectCid" :href="gatewayUrlSafe(result.projectCid)" target="_blank" rel="noopener">Open Project</a>
           <a v-if="result.backupCid" :href="gatewayUrlSafe(result.backupCid)" target="_blank" rel="noopener">Open Backup</a>
+          <span v-if="result.manifestCid || result.projectCid || result.backupCid">|</span>
+          <a v-if="result.manifestCid" :href="`https://gateway.pinata.cloud/ipfs/${result.manifestCid}`" target="_blank" rel="noopener">Pinata Manifest</a>
+          <a v-if="result.projectCid" :href="`https://gateway.pinata.cloud/ipfs/${result.projectCid}`" target="_blank" rel="noopener">Pinata Project</a>
+          <a v-if="result.backupCid" :href="`https://gateway.pinata.cloud/ipfs/${result.backupCid}`" target="_blank" rel="noopener">Pinata Backup</a>
         </div>
       </div>
     </div>
@@ -91,6 +95,7 @@
 import { ref, computed } from 'vue';
 import { useProjectStore } from '@/stores/project';
 import { exportProjectById } from '@/utils/portableBackup';
+import { gatewayUrl as ipfsGatewayUrl } from '@/utils/ipfsGateway';
 
 defineEmits<{ (e: 'close'): void }>();
 const projectStore = useProjectStore();
@@ -113,9 +118,7 @@ const includeBackup = ref(false);
 const publishing = ref(false);
 const result = ref<{ manifestCid: string; projectCid?: string; backupCid?: string } | null>(null);
 
-function gatewayUrl(cid: string): string {
-  return `https://ipfs.io/ipfs/${cid}`;
-}
+function gatewayUrl(cid: string): string { return ipfsGatewayUrl(cid); }
 
 const publishDisabled = computed(() => false);
 

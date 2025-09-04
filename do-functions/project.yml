@@ -1,3 +1,10 @@
+environment:
+  PINATA_JWT: ${env:PINATA_JWT}
+  PINATA_API_KEY: ${env:PINATA_API_KEY}
+  PINATA_API_SECRET: ${env:PINATA_API_SECRET}
+  PINATA_GATEWAY_BASE: ${env:PINATA_GATEWAY_BASE}
+  REGISTRY_CID: ${env:REGISTRY_CID}
+
 packages:
   - name: zine
     actions:

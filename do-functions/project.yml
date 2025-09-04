@@ -9,12 +9,12 @@ packages:
   - name: zine
     actions:
       - name: publish
-        runtime: 'nodejs:default'
+        runtime: 'nodejs:18'
         web: true
       - name: registry
-        runtime: 'nodejs:default'
+        runtime: 'nodejs:18'
         web: true
       - name: envcheck
-        runtime: 'nodejs:default'
+        runtime: 'nodejs:18'
         web: true
 

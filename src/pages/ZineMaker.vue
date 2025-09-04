@@ -114,7 +114,7 @@ import RssAudioPlayer from '@/components/RssAudioPlayer.vue';
 import { useProjectStore } from '@/stores/project';
 import { useUIStore } from '@/stores/ui';
 import { useToolsStore } from '@/stores/tools';
-import { FilePlus, Github, Save, Sidebar, Sliders, FileText, Upload, Search } from 'lucide-vue-next';
+import { FilePlus, FolderOpen, Github, Save, Sidebar, Sliders, FileText, Upload, Search } from 'lucide-vue-next';
 // @ts-ignore - Vue SFC type shim might be missing in this project setup
 import ProjectsModal from '@/components/ProjectsModal.vue';
 import { useAssetStore } from '@/stores/assetStore';

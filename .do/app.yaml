@@ -3,7 +3,7 @@ region: nyc
 functions:
   - name: ipfs-functions
     github:
-      repo: YOUR_GITHUB_ORG_OR_USER/YOUR_REPO_NAME
+      repo: virgilvox/zine-maker
       branch: ipfs-share
       deploy_on_push: true
     source_dir: do-functions
@@ -32,7 +32,7 @@ functions:
 static_sites:
   - name: web
     github:
-      repo: YOUR_GITHUB_ORG_OR_USER/YOUR_REPO_NAME
+      repo: virgilvox/zine-maker
       branch: ipfs-share
       deploy_on_push: true
     source_dir: .

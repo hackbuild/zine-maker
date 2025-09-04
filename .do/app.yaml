@@ -1,10 +1,10 @@
-name: zine-maker-ipfs-share-functions
+name: zine-maker-ipfs
 region: nyc
 functions:
-  - name: ipfs-functions
+  - name: functions
     github:
       repo: virgilvox/zine-maker
-      branch: ipfs-share
+      branch: feature/ipfs-share
       deploy_on_push: true
     source_dir: do-functions
     routes:
@@ -33,7 +33,7 @@ static_sites:
   - name: web
     github:
       repo: virgilvox/zine-maker
-      branch: ipfs-share
+      branch: feature/ipfs-share
       deploy_on_push: true
     source_dir: .
     build_command: npm ci && npm run build

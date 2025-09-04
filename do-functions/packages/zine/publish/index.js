@@ -97,10 +97,19 @@ exports.main = async function (params) {
     // Upload manifest as JSON
     const manifestCid = await pinJsonToIpfs(manifest, token, apiKey, apiSecret);
 
+    const pinataBase = (process.env.PINATA_GATEWAY_BASE || params.PINATA_GATEWAY_BASE || 'https://gateway.pinata.cloud').replace(/\/$/, '');
+    const toIpfs = (cid) => cid ? `https://ipfs.io/ipfs/${cid}` : undefined;
+    const toPinata = (cid) => cid ? `${pinataBase}/ipfs/${cid}` : undefined;
+    const links = {
+      manifest: { ipfs: toIpfs(manifestCid), pinata: toPinata(manifestCid) },
+      project: { ipfs: toIpfs(projectCid), pinata: toPinata(projectCid) },
+      backup: { ipfs: toIpfs(backupCid), pinata: toPinata(backupCid) }
+    };
+
     return {
       statusCode: 200,
       headers: TEXT_HEADERS,
-      body: { manifestCid, projectCid, backupCid }
+      body: { manifestCid, projectCid, backupCid, links }
     };
   } catch (e) {
     return {

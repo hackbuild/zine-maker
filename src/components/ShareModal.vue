@@ -104,6 +104,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useProjectStore } from '@/stores/project';
+import { exportProjectById } from '@/utils/portableBackup';
 
 defineEmits<{ (e: 'close'): void }>();
 const projectStore = useProjectStore();
@@ -132,10 +133,7 @@ function gatewayUrl(cid: string): string {
   return `https://ipfs.io/ipfs/${cid}`;
 }
 
-const publishDisabled = computed(() => {
-  if (pinProvider.value === 'none') return true; // require provider for now
-  return !pinToken.value.trim();
-});
+const publishDisabled = computed(() => false);
 
 function gatewayUrlSafe(cid?: string): string {
   const v = (cid || '').trim();
@@ -145,18 +143,13 @@ function gatewayUrlSafe(cid?: string): string {
 
 async function onPublish() {
   if (!projectStore.currentProject || publishing.value) return;
-  if (publishDisabled.value) {
-    alert('Please select a pin provider and enter a valid API token.');
-    return;
-  }
   publishing.value = true;
   result.value = null;
   try {
-    const { publishToIpfs } = await import('@/utils/useIpfs');
-    const res = await publishToIpfs({
+    const payload: any = {
       project: projectStore.currentProject,
       description: description.value,
-      tags: tags.value,
+      tags: (tags.value || '').split(',').map(s => s.trim()).filter(Boolean),
       author: {
         name: authorName.value,
         url: authorUrl.value,
@@ -165,12 +158,27 @@ async function onPublish() {
           fingerprint: pgpFingerprint.value,
           publicKeyArmored: pgpPublicKey.value || undefined
         }
-      },
-      sign: shouldSign.value ? { privateKeyArmored: pgpPrivateKey.value, passphrase: pgpPassphrase.value } : undefined,
-      pin: { provider: pinProvider.value as any, token: pinToken.value },
-      includeBackup: includeBackup.value
+      }
+    };
+
+    if (includeBackup.value) {
+      try {
+        payload.backup = await exportProjectById(projectStore.currentProject.id);
+      } catch {}
+    }
+
+    const apiBase = window.location.origin.replace(/\/$/, '');
+    const res = await fetch(`${apiBase}/api/zine/publish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
-    result.value = res;
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      throw new Error(`Publish failed (${res.status}): ${txt}`);
+    }
+    const data = await res.json();
+    result.value = { manifestCid: data.manifestCid, projectCid: data.projectCid, backupCid: data.backupCid };
   } catch (err) {
     console.error(err);
     alert((err as any)?.message || 'Publish failed. Check console for details.');

@@ -18,14 +18,22 @@ const TEXT_HEADERS = {
   'Access-Control-Allow-Headers': 'content-type,authorization'
 };
 
-async function pinJsonToIpfs(content, token, key, secret) {
-  const headers = token
-    ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
-    : (key && secret ? { 'pinata_api_key': key, 'pinata_secret_api_key': secret, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' });
+function pinataAuthHeaders(token, key, secret) {
+  return token
+    ? { Authorization: `Bearer ${token}` }
+    : (key && secret ? { 'pinata_api_key': key, 'pinata_secret_api_key': secret } : {});
+}
+
+async function pinJsonToIpfs(content, token, key, secret, metadataName) {
+  const headers = { ...pinataAuthHeaders(token, key, secret), 'Content-Type': 'application/json' };
+  const body = { pinataContent: content };
+  if (metadataName) {
+    body.pinataMetadata = { name: metadataName };
+  }
   const res = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ pinataContent: content })
+    body: JSON.stringify(body)
   });
   if (!res.ok) {
     const t = await res.text().catch(() => '');
@@ -134,7 +142,27 @@ exports.main = async function (params) {
         }
         byKey.set(manifestCid, add);
         current.entries = Array.from(byKey.values());
-        newRegistryCid = await pinJsonToIpfs(current, token, apiKey, apiSecret);
+        const registryName = process.env.REGISTRY_NAME || params.REGISTRY_NAME || 'zeenster-manifest.json';
+        newRegistryCid = await pinJsonToIpfs(current, token, apiKey, apiSecret, registryName);
+
+        // Best-effort: unpin older registry files with the same metadata name to avoid pin bloat
+        try {
+          const headers = pinataAuthHeaders(token, apiKey, apiSecret);
+          const listUrl = `https://api.pinata.cloud/data/pinList?status=pinned&metadata[name]=${encodeURIComponent(registryName)}&pageLimit=1000`;
+          const lres = await fetch(listUrl, { headers });
+          if (lres.ok) {
+            const ljson = await lres.json();
+            const rows = Array.isArray(ljson?.rows) ? ljson.rows : [];
+            for (const row of rows) {
+              const hash = row?.ipfs_pin_hash;
+              if (hash && hash !== newRegistryCid) {
+                try {
+                  await fetch(`https://api.pinata.cloud/pinning/unpin/${hash}`, { method: 'DELETE', headers });
+                } catch {}
+              }
+            }
+          }
+        } catch {}
       } catch {}
     }
 

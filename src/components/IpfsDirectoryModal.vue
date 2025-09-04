@@ -25,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { fetchIpfsJson, gatewayUrl } from '@/utils/ipfsGateway';
 
 defineEmits<{ (e: 'close'): void }>();
@@ -34,16 +34,27 @@ const cid = ref('bafkreibozw3oc5a6vd5djsh5s22uguswes45dc4vpc5rvq5emgycjwyzsu');
 const items = ref<{ cid: string; title: string; description?: string }[]>([]);
 
 async function load() {
-  if (!cid.value.trim()) return;
+  const v = cid.value.trim();
+  if (!v) return;
   try {
-    const data = await fetchIpfsJson<any>(cid.value.trim());
-    const list = Array.isArray(data?.items) ? data.items : [];
-    items.value = list.map((i: any) => ({ cid: i.cid, title: i.title || i.cid, description: i.description }));
+    // Prefer Pinata gateway for the registry manifest (faster availability)
+    const url = `https://gateway.pinata.cloud/ipfs/${v}`;
+    const res = await fetch(url, { redirect: 'follow' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const list = Array.isArray(data?.items) ? data.items : (Array.isArray(data?.entries) ? data.entries : []);
+    items.value = list.map((i: any) => ({
+      cid: i.cid || i.manifestCid || i.project?.cid || i.id,
+      title: i.title || i.name || i.project?.title || (i.cid || i.manifestCid || ''),
+      description: i.description
+    })).filter((i: any) => typeof i.cid === 'string' && i.cid);
   } catch (e) {
     console.error(e);
     alert('Failed to load directory');
   }
 }
+
+onMounted(() => { load(); });
 </script>
 
 <style scoped>

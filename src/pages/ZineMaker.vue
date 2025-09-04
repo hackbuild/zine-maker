@@ -57,13 +57,11 @@
           <a v-if="!isMobile" href="https://github.com/virgilvox/zine-maker" target="_blank" rel="noopener noreferrer" class="header-button icon-only" title="GitHub Repository" aria-label="GitHub">
             <Github :size="16" />
           </a>
-          <router-link to="/markdown" class="header-button" title="Markdown Editor" aria-label="Markdown">
+          <router-link to="/markdown" class="header-button icon-only" title="Markdown Editor" aria-label="Markdown">
             <FileText :size="16" />
-            <span>Markdown</span>
           </router-link>
-          <button @click="uiStore.showShareModal = true" class="header-button header-button--green" title="Share to IPFS" aria-label="Share">
+          <button @click="uiStore.showShareModal = true" class="header-button header-button--green icon-only" title="Share to IPFS" aria-label="Share">
             <Upload :size="16" />
-            <span>Share</span>
           </button>
           <button @click="uiStore.showIpfsDirectoryModal = true" class="header-button" title="Explore IPFS" aria-label="Explore">
             <FolderOpen :size="16" />

@@ -81,10 +81,6 @@
           <a v-if="result.manifestCid" :href="gatewayUrlSafe(result.manifestCid)" target="_blank" rel="noopener">Open Manifest</a>
           <a v-if="result.projectCid" :href="gatewayUrlSafe(result.projectCid)" target="_blank" rel="noopener">Open Project</a>
           <a v-if="result.backupCid" :href="gatewayUrlSafe(result.backupCid)" target="_blank" rel="noopener">Open Backup</a>
-          <span v-if="result.manifestCid || result.projectCid || result.backupCid">|</span>
-          <a v-if="result.manifestCid" :href="`https://gateway.pinata.cloud/ipfs/${result.manifestCid}`" target="_blank" rel="noopener">Pinata Manifest</a>
-          <a v-if="result.projectCid" :href="`https://gateway.pinata.cloud/ipfs/${result.projectCid}`" target="_blank" rel="noopener">Pinata Project</a>
-          <a v-if="result.backupCid" :href="`https://gateway.pinata.cloud/ipfs/${result.backupCid}`" target="_blank" rel="noopener">Pinata Backup</a>
         </div>
       </div>
     </div>

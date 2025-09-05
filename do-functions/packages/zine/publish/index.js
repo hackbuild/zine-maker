@@ -24,26 +24,7 @@ function pinataAuthHeaders(token, key, secret) {
     : (key && secret ? { 'pinata_api_key': key, 'pinata_secret_api_key': secret } : {});
 }
 
-async function pinJsonToIpfs(content, token, key, secret, metadataName) {
-  const headers = { ...pinataAuthHeaders(token, key, secret), 'Content-Type': 'application/json' };
-  const body = { pinataContent: content };
-  if (metadataName) {
-    body.pinataMetadata = { name: metadataName };
-  }
-  const res = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body)
-  });
-  if (!res.ok) {
-    const t = await res.text().catch(() => '');
-    throw new Error(`Pinata JSON upload failed (${res.status}): ${t}`);
-  }
-  const data = await res.json();
-  const cid = data.IpfsHash || data.cid;
-  if (!cid) throw new Error('Missing CID in Pinata response');
-  return cid;
-}
+// Removed Pinata helper; we exclusively use internal IPFS droplet below
 
 function toPath(cidOrName) {
   const v = (cidOrName || '').trim();
@@ -115,11 +96,8 @@ exports.main = async function (params) {
 
   try {
     const dc = dropletConfig(params);
-    const token = process.env.PINATA_JWT || params.PINATA_JWT;
-    const apiKey = process.env.PINATA_API_KEY || params.PINATA_API_KEY;
-    const apiSecret = process.env.PINATA_API_SECRET || params.PINATA_API_SECRET;
-    if (!dc && !token && !(apiKey && apiSecret)) {
-      return { statusCode: 400, headers: TEXT_HEADERS, body: { error: 'Missing IPFS credentials' } };
+    if (!dc) {
+      return { statusCode: 400, headers: TEXT_HEADERS, body: { error: 'Missing IPFS droplet configuration' } };
     }
 
     // Accept either direct body from web action or params.payload
@@ -136,15 +114,11 @@ exports.main = async function (params) {
     const projectJson = JSON.stringify(project, (_k, v) => (v && v.toISOString ? v.toISOString() : v));
 
     // Upload project as JSON (prefer droplet)
-    const projectCid = dc
-      ? await dropletAddJson(dc, 'project.json', JSON.parse(projectJson))
-      : await pinJsonToIpfs(JSON.parse(projectJson), token, apiKey, apiSecret);
+    const projectCid = await dropletAddJson(dc, 'project.json', JSON.parse(projectJson));
 
     let backupCid;
     if (payload.backup) {
-      backupCid = dc
-        ? await dropletAddJson(dc, 'backup.json', payload.backup)
-        : await pinJsonToIpfs(payload.backup, token, apiKey, apiSecret);
+      backupCid = await dropletAddJson(dc, 'backup.json', payload.backup);
     }
 
     // Build manifest aligned with src/types ZineManifest
@@ -158,7 +132,7 @@ exports.main = async function (params) {
       project: { cid: projectCid },
       backup: backupCid ? { cid: backupCid, optional: true } : undefined,
       author: payload.author || undefined,
-      pinnedVia: [dc ? 'droplet' : 'pinata'],
+      pinnedVia: ['droplet'],
       app: { name: 'Zine Maker', version: '0.0.0' }
     };
 
@@ -170,62 +144,12 @@ exports.main = async function (params) {
     }
 
     // Upload manifest as JSON
-    const manifestCid = dc
-      ? await dropletAddJson(dc, 'manifest.json', manifest)
-      : await pinJsonToIpfs(manifest, token, apiKey, apiSecret);
+    const manifestCid = await dropletAddJson(dc, 'manifest.json', manifest);
 
     // Optionally update global registry (merge append)
-    let newRegistryCid;
-    const registryCid = process.env.REGISTRY_CID || params.REGISTRY_CID;
-    const gatewayBase = (process.env.PINATA_GATEWAY_BASE || params.PINATA_GATEWAY_BASE || 'https://gateway.pinata.cloud').replace(/\/$/, '');
-    if (!dc && registryCid) {
-      try {
-        const url = `${gatewayBase}/${toPath(registryCid)}`;
-        const res = await fetch(url, { redirect: 'follow' });
-        let current = { schema: 'v1', entries: [] };
-        if (res.ok) {
-          try { current = await res.json(); } catch {}
-        }
-        const add = {
-          title: manifest.title,
-          manifestCid,
-          description: manifest.description,
-          tags: manifest.tags || [],
-          createdAt: new Date().toISOString()
-        };
-        const byKey = new Map();
-        for (const e of Array.isArray(current.entries) ? current.entries : []) {
-          const key = e.manifestCid || e.cid || e.id || e.title;
-          if (key && key !== manifestCid) byKey.set(key, e);
-        }
-        byKey.set(manifestCid, add);
-        current.entries = Array.from(byKey.values());
-        const registryName = process.env.REGISTRY_NAME || params.REGISTRY_NAME || 'zeenster-manifest.json';
-        newRegistryCid = await pinJsonToIpfs(current, token, apiKey, apiSecret, registryName);
-
-        // Best-effort: unpin older registry files with the same metadata name to avoid pin bloat
-        try {
-          const headers = pinataAuthHeaders(token, apiKey, apiSecret);
-          const listUrl = `https://api.pinata.cloud/data/pinList?status=pinned&metadata[name]=${encodeURIComponent(registryName)}&pageLimit=1000`;
-          const lres = await fetch(listUrl, { headers });
-          if (lres.ok) {
-            const ljson = await lres.json();
-            const rows = Array.isArray(ljson?.rows) ? ljson.rows : [];
-            for (const row of rows) {
-              const hash = row?.ipfs_pin_hash;
-              if (hash && hash !== newRegistryCid) {
-                try {
-                  await fetch(`https://api.pinata.cloud/pinning/unpin/${hash}`, { method: 'DELETE', headers });
-                } catch {}
-              }
-            }
-          }
-        } catch {}
-      } catch {}
-    }
-
     // Droplet-backed registry and IPNS publish
-    if (dc) {
+    let newRegistryCid;
+    {
       try {
         let current = await dropletFilesRead(dc, dc.mfsPath);
         if (!current || typeof current !== 'object') current = { schema: 'v1', entries: [] };
@@ -250,19 +174,17 @@ exports.main = async function (params) {
       } catch {}
     }
 
-    const pinataBase = (process.env.PINATA_GATEWAY_BASE || params.PINATA_GATEWAY_BASE || 'https://gateway.pinata.cloud').replace(/\/$/, '');
-    const toIpfs = (cid) => cid ? (dc ? `${dc.GW}/ipfs/${cid}` : `https://ipfs.io/ipfs/${cid}`) : undefined;
-    const toPinata = (cid) => cid ? `${pinataBase}/ipfs/${cid}` : undefined;
+    const toIpfs = (cid) => cid ? `${dc.GW}/ipfs/${cid}` : undefined;
     const links = {
-      manifest: { ipfs: toIpfs(manifestCid), pinata: toPinata(manifestCid) },
-      project: { ipfs: toIpfs(projectCid), pinata: toPinata(projectCid) },
-      backup: { ipfs: toIpfs(backupCid), pinata: toPinata(backupCid) }
+      manifest: { ipfs: toIpfs(manifestCid) },
+      project: { ipfs: toIpfs(projectCid) },
+      backup: { ipfs: toIpfs(backupCid) }
     };
 
     return {
       statusCode: 200,
       headers: TEXT_HEADERS,
-      body: { manifestCid, projectCid, backupCid, links, registryCid: newRegistryCid || registryCid }
+      body: { manifestCid, projectCid, backupCid, links, registryCid: newRegistryCid }
     };
   } catch (e) {
     return {

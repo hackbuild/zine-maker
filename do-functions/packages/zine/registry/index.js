@@ -1,16 +1,8 @@
 'use strict';
-// Ensure Blob exists in Node runtime (DO Functions) by polyfilling from buffer
-try { if (typeof Blob === 'undefined') { global.Blob = require('buffer').Blob; } } catch {}
-// Ensure fetch exists in Node runtime (prefer undici)
-try {
-  if (typeof fetch === 'undefined') {
-    const { fetch: undiciFetch } = require('undici');
-    if (undiciFetch) global.fetch = undiciFetch;
-  }
-} catch {}
+try { if (typeof fetch === 'undefined') { const { fetch: f } = require('undici'); if (f) global.fetch = f; } } catch {}
 
 // Web-exported function to fetch or update a global zine registry manifest stored on IPFS.
-// Uses Pinata JWT for uploads. Reads existing manifest from IPFS gateways.
+// Uses your internal IPFS node (droplet) if configured; otherwise falls back to public gateways for reads.
 
 const TEXT_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -67,26 +59,25 @@ exports.main = async function (params) {
 
   try {
     const method = (params.__ow_method || 'GET').toUpperCase();
-    const token = process.env.PINATA_JWT || params.PINATA_JWT;
-    const apiKey = process.env.PINATA_API_KEY || params.PINATA_API_KEY;
-    const apiSecret = process.env.PINATA_API_SECRET || params.PINATA_API_SECRET;
+    // Droplet config
+    const host = process.env.IPFS_DROPLET_HOST || params.IPFS_DROPLET_HOST;
+    const pass = process.env.IPFS_DROPLET_ADMIN_PASS || params.IPFS_DROPLET_ADMIN_PASS;
+    const user = process.env.IPFS_DROPLET_ADMIN_USER || params.IPFS_DROPLET_ADMIN_USER || 'ipfsadmin';
+    const API = host ? `http://${host}:5002/api/v0` : undefined;
+    const auth = (host && pass) ? 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64') : undefined;
     let registryCid = process.env.REGISTRY_CID || params.REGISTRY_CID || params.cid;
-    const gatewayBase = process.env.PINATA_GATEWAY_BASE || params.PINATA_GATEWAY_BASE || 'https://gateway.pinata.cloud';
+    const gatewayBase = host ? `http://${host}:8080` : 'https://ipfs.io';
 
     if (method === 'GET') {
-      // Optional lookup by Pinata file name (latest pinned)
-      const byName = params.name || params.filename;
-      if (byName && (token || (apiKey && apiSecret))) {
+      // Optional droplet lookup by IPNS key name when no CID specified
+      const byKeyName = params.key || params.name;
+      if (!registryCid && API && auth && byKeyName) {
         try {
-          const searchUrl = `https://api.pinata.cloud/data/pinList?status=pinned&metadata[name]=${encodeURIComponent(byName)}&pageLimit=1&sort=created_at&direction=desc`;
-          const headers = token
-            ? { Authorization: `Bearer ${token}` }
-            : { 'pinata_api_key': apiKey, 'pinata_secret_api_key': apiSecret };
-          const sres = await fetch(searchUrl, { headers });
-          if (sres.ok) {
-            const sjson = await sres.json();
-            const row = (sjson?.rows || [])[0];
-            if (row?.ipfs_pin_hash) registryCid = row.ipfs_pin_hash;
+          const list = await fetch(`${API}/key/list`, { method: 'POST', headers: { Authorization: auth } });
+          if (list.ok) {
+            const j = await list.json();
+            const id = (j?.Keys || []).find(k => k?.Name === byKeyName)?.Id;
+            if (id) registryCid = `ipns/${id}`;
           }
         } catch {}
       }

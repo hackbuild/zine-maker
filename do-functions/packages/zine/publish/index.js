@@ -157,9 +157,15 @@ exports.main = async function (params) {
         let current = await dropletFilesRead(dc, dc.mfsPath);
         if (!current || typeof current !== 'object') current = { schema: 'v1', entries: [] };
         const add = {
+          // Human-friendly
           title: manifest.title,
-          manifestCid,
+          name: manifest.title,
           description: manifest.description,
+          author: manifest.author?.name || manifest.author?.contact || undefined,
+          // Content addresses
+          manifestCid,
+          projectCid,
+          // Extras
           tags: manifest.tags || [],
           createdAt: new Date().toISOString()
         };

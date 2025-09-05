@@ -56,6 +56,57 @@ function toPath(cidOrName) {
   return `ipfs/${v}`;
 }
 
+// --- Internal IPFS (Droplet) helpers ---
+function dropletConfig(params) {
+  const host = process.env.IPFS_DROPLET_HOST || params.IPFS_DROPLET_HOST;
+  const pass = process.env.IPFS_DROPLET_ADMIN_PASS || params.IPFS_DROPLET_ADMIN_PASS;
+  const user = process.env.IPFS_DROPLET_ADMIN_USER || params.IPFS_DROPLET_ADMIN_USER || 'ipfsadmin';
+  const ipnsKey = process.env.IPFS_IPNS_KEY || params.IPFS_IPNS_KEY || 'manifest-key';
+  const mfsPath = process.env.IPFS_MFS_MANIFEST_PATH || params.IPFS_MFS_MANIFEST_PATH || '/manifests/latest.json';
+  if (!host || !pass) return null;
+  const API = `http://${host}:5002/api/v0`;
+  const GW = `http://${host}:8080`;
+  const auth = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
+  return { API, GW, auth, ipnsKey, mfsPath };
+}
+
+async function dropletAddJson(dc, name, obj) {
+  const blob = new Blob([JSON.stringify(obj)], { type: 'application/json' });
+  const fd = new FormData();
+  fd.set('file', blob, name);
+  const res = await fetch(`${dc.API}/add?pin=true&cid-version=1`, { method: 'POST', headers: { Authorization: dc.auth }, body: fd });
+  if (!res.ok) throw new Error(`Droplet add failed ${res.status}`);
+  const j = await res.json();
+  return j.Hash;
+}
+
+async function dropletFilesRead(dc, path) {
+  const res = await fetch(`${dc.API}/files/read?arg=${encodeURIComponent(path)}`, { method: 'POST', headers: { Authorization: dc.auth } });
+  if (!res.ok) return null;
+  const txt = await res.text();
+  try { return JSON.parse(txt); } catch { return null; }
+}
+
+async function dropletFilesWrite(dc, path, bytes) {
+  const fd = new FormData();
+  fd.set('data', new Blob([bytes], { type: 'application/json' }), 'data.json');
+  const res = await fetch(`${dc.API}/files/write?arg=${encodeURIComponent(path)}&create=true&truncate=true`, { method: 'POST', headers: { Authorization: dc.auth }, body: fd });
+  if (!res.ok) throw new Error(`Droplet write failed ${res.status}`);
+}
+
+async function dropletFilesStat(dc, path) {
+  const res = await fetch(`${dc.API}/files/stat?arg=${encodeURIComponent(path)}`, { method: 'POST', headers: { Authorization: dc.auth } });
+  if (!res.ok) throw new Error(`Droplet stat failed ${res.status}`);
+  const j = await res.json();
+  return j.Hash;
+}
+
+async function dropletPublishIpns(dc, cid) {
+  const res = await fetch(`${dc.API}/name/publish?key=${encodeURIComponent(dc.ipnsKey)}&allow-offline=true&arg=${cid}`, { method: 'POST', headers: { Authorization: dc.auth } });
+  if (!res.ok) throw new Error(`Droplet IPNS publish failed ${res.status}`);
+  return res.json();
+}
+
 exports.main = async function (params) {
   // CORS preflight
   if ((params.__ow_method || '').toUpperCase() === 'OPTIONS') {
@@ -63,11 +114,12 @@ exports.main = async function (params) {
   }
 
   try {
+    const dc = dropletConfig(params);
     const token = process.env.PINATA_JWT || params.PINATA_JWT;
     const apiKey = process.env.PINATA_API_KEY || params.PINATA_API_KEY;
     const apiSecret = process.env.PINATA_API_SECRET || params.PINATA_API_SECRET;
-    if (!token && !(apiKey && apiSecret)) {
-      return { statusCode: 400, headers: TEXT_HEADERS, body: { error: 'Missing Pinata credentials' } };
+    if (!dc && !token && !(apiKey && apiSecret)) {
+      return { statusCode: 400, headers: TEXT_HEADERS, body: { error: 'Missing IPFS credentials' } };
     }
 
     // Accept either direct body from web action or params.payload
@@ -83,12 +135,16 @@ exports.main = async function (params) {
     // Serialize project
     const projectJson = JSON.stringify(project, (_k, v) => (v && v.toISOString ? v.toISOString() : v));
 
-    // Upload project as JSON
-    const projectCid = await pinJsonToIpfs(JSON.parse(projectJson), token, apiKey, apiSecret);
+    // Upload project as JSON (prefer droplet)
+    const projectCid = dc
+      ? await dropletAddJson(dc, 'project.json', JSON.parse(projectJson))
+      : await pinJsonToIpfs(JSON.parse(projectJson), token, apiKey, apiSecret);
 
     let backupCid;
     if (payload.backup) {
-      backupCid = await pinJsonToIpfs(payload.backup, token, apiKey, apiSecret);
+      backupCid = dc
+        ? await dropletAddJson(dc, 'backup.json', payload.backup)
+        : await pinJsonToIpfs(payload.backup, token, apiKey, apiSecret);
     }
 
     // Build manifest aligned with src/types ZineManifest
@@ -102,7 +158,7 @@ exports.main = async function (params) {
       project: { cid: projectCid },
       backup: backupCid ? { cid: backupCid, optional: true } : undefined,
       author: payload.author || undefined,
-      pinnedVia: ['pinata'],
+      pinnedVia: [dc ? 'droplet' : 'pinata'],
       app: { name: 'Zine Maker', version: '0.0.0' }
     };
 
@@ -114,13 +170,15 @@ exports.main = async function (params) {
     }
 
     // Upload manifest as JSON
-    const manifestCid = await pinJsonToIpfs(manifest, token, apiKey, apiSecret);
+    const manifestCid = dc
+      ? await dropletAddJson(dc, 'manifest.json', manifest)
+      : await pinJsonToIpfs(manifest, token, apiKey, apiSecret);
 
     // Optionally update global registry (merge append)
     let newRegistryCid;
     const registryCid = process.env.REGISTRY_CID || params.REGISTRY_CID;
     const gatewayBase = (process.env.PINATA_GATEWAY_BASE || params.PINATA_GATEWAY_BASE || 'https://gateway.pinata.cloud').replace(/\/$/, '');
-    if (registryCid) {
+    if (!dc && registryCid) {
       try {
         const url = `${gatewayBase}/${toPath(registryCid)}`;
         const res = await fetch(url, { redirect: 'follow' });
@@ -166,8 +224,34 @@ exports.main = async function (params) {
       } catch {}
     }
 
+    // Droplet-backed registry and IPNS publish
+    if (dc) {
+      try {
+        let current = await dropletFilesRead(dc, dc.mfsPath);
+        if (!current || typeof current !== 'object') current = { schema: 'v1', entries: [] };
+        const add = {
+          title: manifest.title,
+          manifestCid,
+          description: manifest.description,
+          tags: manifest.tags || [],
+          createdAt: new Date().toISOString()
+        };
+        const byKey = new Map();
+        for (const e of Array.isArray(current.entries) ? current.entries : []) {
+          const key = e.manifestCid || e.cid || e.id || e.title;
+          if (key && key !== manifestCid) byKey.set(key, e);
+        }
+        byKey.set(manifestCid, add);
+        current.entries = Array.from(byKey.values());
+        await dropletFilesWrite(dc, dc.mfsPath, JSON.stringify(current));
+        const mCid = await dropletFilesStat(dc, dc.mfsPath);
+        await dropletPublishIpns(dc, mCid);
+        newRegistryCid = mCid;
+      } catch {}
+    }
+
     const pinataBase = (process.env.PINATA_GATEWAY_BASE || params.PINATA_GATEWAY_BASE || 'https://gateway.pinata.cloud').replace(/\/$/, '');
-    const toIpfs = (cid) => cid ? `https://ipfs.io/ipfs/${cid}` : undefined;
+    const toIpfs = (cid) => cid ? (dc ? `${dc.GW}/ipfs/${cid}` : `https://ipfs.io/ipfs/${cid}`) : undefined;
     const toPinata = (cid) => cid ? `${pinataBase}/ipfs/${cid}` : undefined;
     const links = {
       manifest: { ipfs: toIpfs(manifestCid), pinata: toPinata(manifestCid) },

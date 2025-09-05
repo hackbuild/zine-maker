@@ -10,6 +10,18 @@ functions:
     routes:
       - path: /api/
     envs:
+      - key: IPFS_DROPLET_HOST
+        scope: RUN_TIME
+      - key: IPFS_DROPLET_ADMIN_PASS
+        scope: RUN_TIME
+        type: SECRET
+      - key: IPFS_DROPLET_ADMIN_USER
+        scope: RUN_TIME
+      - key: IPFS_MFS_MANIFEST_PATH
+        scope: RUN_TIME
+      - key: IPFS_IPNS_KEY
+        scope: RUN_TIME
+    envs:
       - key: PINATA_JWT
         scope: RUN_TIME
       - key: PINATA_API_KEY

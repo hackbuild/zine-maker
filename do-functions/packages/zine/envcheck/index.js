@@ -15,14 +15,14 @@ exports.main = async function (params) {
     statusCode: 200,
     headers: TEXT_HEADERS,
     body: {
-      hasJWT: Boolean(process.env.PINATA_JWT || params.PINATA_JWT),
-      hasKey: Boolean(process.env.PINATA_API_KEY || params.PINATA_API_KEY),
-      hasSecret: Boolean(process.env.PINATA_API_SECRET || params.PINATA_API_SECRET),
-      gateway: process.env.PINATA_GATEWAY_BASE || params.PINATA_GATEWAY_BASE,
-      sample: {
-        jwt: mask(process.env.PINATA_JWT || params.PINATA_JWT),
-        key: mask(process.env.PINATA_API_KEY || params.PINATA_API_KEY),
-        secret: mask(process.env.PINATA_API_SECRET || params.PINATA_API_SECRET)
+      droplet: {
+        host: process.env.IPFS_DROPLET_HOST || params.IPFS_DROPLET_HOST,
+        adminUser: process.env.IPFS_DROPLET_ADMIN_USER || params.IPFS_DROPLET_ADMIN_USER,
+        hasAdminPass: Boolean(process.env.IPFS_DROPLET_ADMIN_PASS || params.IPFS_DROPLET_ADMIN_PASS),
+        hasApiSecret: Boolean(process.env.IPFS_API_SECRET || params.IPFS_API_SECRET),
+        mfsPath: process.env.IPFS_MFS_MANIFEST_PATH || params.IPFS_MFS_MANIFEST_PATH,
+        ipnsKey: process.env.IPFS_IPNS_KEY || params.IPFS_IPNS_KEY,
+        registryCid: process.env.REGISTRY_CID || params.REGISTRY_CID
       }
     }
   };

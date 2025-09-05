@@ -15,7 +15,7 @@
             <div class="meta small">{{ item.cid }}</div>
           </div>
           <div class="actions">
-            <a class="btn" :href="`https://gateway.pinata.cloud/ipfs/${item.cid}`" target="_blank" rel="noopener">Open</a>
+            <a class="btn" :href="`/ipfs/${item.cid}`" target="_blank" rel="noopener">Open</a>
           </div>
         </li>
       </ul>

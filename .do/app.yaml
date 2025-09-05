@@ -21,6 +21,9 @@ functions:
         scope: RUN_TIME
       - key: IPFS_IPNS_KEY
         scope: RUN_TIME
+      - key: IPFS_API_SECRET
+        scope: RUN_TIME
+        type: SECRET
     envs:
       - key: PINATA_JWT
         scope: RUN_TIME

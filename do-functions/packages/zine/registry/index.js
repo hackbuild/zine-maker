@@ -65,15 +65,17 @@ exports.main = async function (params) {
     const user = process.env.IPFS_DROPLET_ADMIN_USER || params.IPFS_DROPLET_ADMIN_USER || 'ipfsadmin';
     const API = host ? `http://${host}:5002/api/v0` : undefined;
     const auth = (host && pass) ? 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64') : undefined;
+    const apiSecret = process.env.IPFS_API_SECRET || params.IPFS_API_SECRET;
+    const headers = auth ? (apiSecret ? { Authorization: auth, 'X-API-SECRET': apiSecret } : { Authorization: auth }) : undefined;
     let registryCid = process.env.REGISTRY_CID || params.REGISTRY_CID || params.cid;
     const gatewayBase = host ? `http://${host}:8080` : 'https://ipfs.io';
 
     if (method === 'GET') {
       // Optional droplet lookup by IPNS key name when no CID specified
       const byKeyName = params.key || params.name;
-      if (!registryCid && API && auth && byKeyName) {
+      if (!registryCid && API && headers && byKeyName) {
         try {
-          const list = await fetch(`${API}/key/list`, { method: 'POST', headers: { Authorization: auth } });
+          const list = await fetch(`${API}/key/list`, { method: 'POST', headers });
           if (list.ok) {
             const j = await list.json();
             const id = (j?.Keys || []).find(k => k?.Name === byKeyName)?.Id;

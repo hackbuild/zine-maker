@@ -44,25 +44,28 @@ function dropletConfig(params) {
   const user = process.env.IPFS_DROPLET_ADMIN_USER || params.IPFS_DROPLET_ADMIN_USER || 'ipfsadmin';
   const ipnsKey = process.env.IPFS_IPNS_KEY || params.IPFS_IPNS_KEY || 'manifest-key';
   const mfsPath = process.env.IPFS_MFS_MANIFEST_PATH || params.IPFS_MFS_MANIFEST_PATH || '/manifests/latest.json';
+  const apiSecret = process.env.IPFS_API_SECRET || params.IPFS_API_SECRET;
   if (!host || !pass) return null;
   const API = `http://${host}:5002/api/v0`;
   const GW = `http://${host}:8080`;
   const auth = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
-  return { API, GW, auth, ipnsKey, mfsPath };
+  const baseHeaders = { Authorization: auth };
+  if (apiSecret) (baseHeaders)['X-API-SECRET'] = apiSecret;
+  return { API, GW, auth, ipnsKey, mfsPath, headers: baseHeaders };
 }
 
 async function dropletAddJson(dc, name, obj) {
   const blob = new Blob([JSON.stringify(obj)], { type: 'application/json' });
   const fd = new FormData();
   fd.set('file', blob, name);
-  const res = await fetch(`${dc.API}/add?pin=true&cid-version=1`, { method: 'POST', headers: { Authorization: dc.auth }, body: fd });
+  const res = await fetch(`${dc.API}/add?pin=true&cid-version=1`, { method: 'POST', headers: dc.headers, body: fd });
   if (!res.ok) throw new Error(`Droplet add failed ${res.status}`);
   const j = await res.json();
   return j.Hash;
 }
 
 async function dropletFilesRead(dc, path) {
-  const res = await fetch(`${dc.API}/files/read?arg=${encodeURIComponent(path)}`, { method: 'POST', headers: { Authorization: dc.auth } });
+  const res = await fetch(`${dc.API}/files/read?arg=${encodeURIComponent(path)}`, { method: 'POST', headers: dc.headers });
   if (!res.ok) return null;
   const txt = await res.text();
   try { return JSON.parse(txt); } catch { return null; }
@@ -71,19 +74,19 @@ async function dropletFilesRead(dc, path) {
 async function dropletFilesWrite(dc, path, bytes) {
   const fd = new FormData();
   fd.set('data', new Blob([bytes], { type: 'application/json' }), 'data.json');
-  const res = await fetch(`${dc.API}/files/write?arg=${encodeURIComponent(path)}&create=true&truncate=true`, { method: 'POST', headers: { Authorization: dc.auth }, body: fd });
+  const res = await fetch(`${dc.API}/files/write?arg=${encodeURIComponent(path)}&create=true&truncate=true`, { method: 'POST', headers: dc.headers, body: fd });
   if (!res.ok) throw new Error(`Droplet write failed ${res.status}`);
 }
 
 async function dropletFilesStat(dc, path) {
-  const res = await fetch(`${dc.API}/files/stat?arg=${encodeURIComponent(path)}`, { method: 'POST', headers: { Authorization: dc.auth } });
+  const res = await fetch(`${dc.API}/files/stat?arg=${encodeURIComponent(path)}`, { method: 'POST', headers: dc.headers });
   if (!res.ok) throw new Error(`Droplet stat failed ${res.status}`);
   const j = await res.json();
   return j.Hash;
 }
 
 async function dropletPublishIpns(dc, cid) {
-  const res = await fetch(`${dc.API}/name/publish?key=${encodeURIComponent(dc.ipnsKey)}&allow-offline=true&arg=${cid}`, { method: 'POST', headers: { Authorization: dc.auth } });
+  const res = await fetch(`${dc.API}/name/publish?key=${encodeURIComponent(dc.ipnsKey)}&allow-offline=true&arg=${cid}`, { method: 'POST', headers: dc.headers });
   if (!res.ok) throw new Error(`Droplet IPNS publish failed ${res.status}`);
   return res.json();
 }

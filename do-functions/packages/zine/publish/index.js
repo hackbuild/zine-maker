@@ -10,7 +10,7 @@ try {
 } catch {}
 
 // DigitalOcean Functions (OpenWhisk) action entry
-// Web-exported; expects JSON body. Publishes a project/manifest to IPFS via Pinata.
+// Web-exported; expects JSON body. Publishes a project/manifest to your IPFS node (droplet).
 
 const TEXT_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -18,24 +18,7 @@ const TEXT_HEADERS = {
   'Access-Control-Allow-Headers': 'content-type,authorization'
 };
 
-function pinataAuthHeaders(token, key, secret) {
-  return token
-    ? { Authorization: `Bearer ${token}` }
-    : (key && secret ? { 'pinata_api_key': key, 'pinata_secret_api_key': secret } : {});
-}
-
-// Removed Pinata helper; we exclusively use internal IPFS droplet below
-
-function toPath(cidOrName) {
-  const v = (cidOrName || '').trim();
-  if (!v) return 'ipfs/';
-  if (v.startsWith('ipns/')) return v;
-  if (v.startsWith('ipfs/')) return v;
-  if (v.startsWith('ipns:')) return `ipns/${v.slice(5)}`;
-  if (v.startsWith('ipfs:')) return `ipfs/${v.slice(5)}`;
-  if (v.startsWith('k51')) return `ipns/${v}`;
-  return `ipfs/${v}`;
-}
+// Pinata removed; we exclusively use internal IPFS droplet below
 
 // --- Internal IPFS (Droplet) helpers ---
 function dropletConfig(params) {

@@ -3,7 +3,7 @@
     <div class="modal">
       <button class="close" @click="$emit('close')">×</button>
       <h3>Published Zines</h3>
-      <div class="controls">
+      <div class="controls" v-if="false">
         <input v-model="cid" placeholder="Global index CID or IPNS name" />
         <button class="btn" @click="load">Load</button>
       </div>
@@ -15,7 +15,7 @@
             <div class="meta small">{{ item.cid }}</div>
           </div>
           <div class="actions">
-            <a class="btn" :href="`/ipfs/${item.cid}`" target="_blank" rel="noopener">Open</a>
+            <a class="btn" :href="gatewayUrl(item.cid)" target="_blank" rel="noopener">Open</a>
           </div>
         </li>
       </ul>
@@ -26,31 +26,25 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { gatewayUrl } from '@/utils/ipfsGateway';
 
 defineEmits<{ (e: 'close'): void }>();
 
 const cid = ref('');
 const items = ref<{ cid: string; title: string; description?: string }[]>([]);
 
-function toPinataPath(v: string): string {
-  const x = (v || '').trim();
-  if (!x) return 'ipfs/';
-  if (x.startsWith('ipns/')) return x;
-  if (x.startsWith('ipfs/')) return x;
-  if (x.startsWith('ipns:')) return `ipns/${x.slice(5)}`;
-  if (x.startsWith('ipfs:')) return `ipfs/${x.slice(5)}`;
-  if (x.startsWith('k51')) return `ipns/${x}`; // IPNS name
-  return `ipfs/${x}`;
-}
-
 async function load() {
+  // Optional override from query string
+  try {
+    const qp = new URLSearchParams(window.location.search).get('cid');
+    if (qp) cid.value = qp;
+  } catch {}
+
   const v = cid.value.trim();
-  // If user entered a CID/IPNS, fetch directly from Pinata
+  // If user entered a CID/IPNS, fetch directly from gateways
   if (v) {
     try {
-      const base = 'https://gateway.pinata.cloud';
-      const url = `${base}/${toPinataPath(v)}`;
-      const res = await fetch(url, { redirect: 'follow' });
+      const res = await fetch(gatewayUrl(v), { redirect: 'follow' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const list = Array.isArray(data?.items) ? data.items : (Array.isArray(data?.entries) ? data.entries : []);
@@ -66,10 +60,10 @@ async function load() {
       return;
     }
   }
-  // Otherwise, fetch latest registry by Pinata file name via our backend
+  // Otherwise, fetch latest registry by IPNS key via our backend
   try {
     const apiBase = window.location.origin.replace(/\/$/, '');
-    const res = await fetch(`${apiBase}/api/zine/registry?name=zeenster-manifest.json`, { redirect: 'follow' });
+    const res = await fetch(`${apiBase}/api/zine/registry?key=manifest-key`, { redirect: 'follow' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const list = Array.isArray(data?.items) ? data.items : (Array.isArray(data?.entries) ? data.entries : []);

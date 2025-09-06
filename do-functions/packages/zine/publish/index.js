@@ -60,7 +60,7 @@ async function dropletFilesRead(dc, path) {
 async function dropletFilesWrite(dc, path, bytes) {
   const fd = new FormData();
   fd.set('data', new Blob([bytes], { type: 'application/json' }), 'data.json');
-  const res = await fetch(`${dc.API}/files/write?arg=${encodeURIComponent(path)}&create=true&truncate=true`, { method: 'POST', headers: dc.headers, body: fd });
+  const res = await fetch(`${dc.API}/files/write?arg=${encodeURIComponent(path)}&create=true&truncate=true&parents=true&flush=true`, { method: 'POST', headers: dc.headers, body: fd });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     console.error('[publish] files/write failed', { path, status: res.status, body: body?.slice?.(0, 200) });
@@ -164,33 +164,35 @@ exports.main = async function (params) {
 
     // Upsert this publication into a multi-project registry at MFS (entries[]), then publish IPNS
     let newRegistryCid;
-    {
-      try {
-        let current = await must('read_mfs', () => dropletFilesRead(dc, dc.mfsPath));
-        if (!current || typeof current !== 'object') current = { schema: 'v1', entries: [] };
-        if (!Array.isArray(current.entries)) current.entries = [];
-        const add = {
-          title: manifest.title,
-          name: manifest.title,
-          description: manifest.description,
-          author: manifest.author?.name || manifest.author?.contact || undefined,
-          manifestCid,
-          projectCid,
-          tags: manifest.tags || [],
-          createdAt: new Date().toISOString()
-        };
-        const byKey = new Map();
-        for (const e of current.entries) {
-          const key = e.manifestCid || e.cid || e.id || e.title;
-          if (key && key !== manifestCid) byKey.set(key, e);
-        }
-        byKey.set(manifestCid, add);
-        current.entries = Array.from(byKey.values());
-        await must('write_mfs', () => dropletFilesWrite(dc, dc.mfsPath, JSON.stringify(current)));
-        const mCid = await must('stat_mfs', () => dropletFilesStat(dc, dc.mfsPath));
-        await must('ipns_publish', () => dropletPublishIpns(dc, mCid));
-        newRegistryCid = mCid;
-      } catch {}
+    let registryUpdated = false;
+    try {
+      let current = await must('read_mfs', () => dropletFilesRead(dc, dc.mfsPath));
+      if (!current || typeof current !== 'object') current = { schema: 'v1', entries: [] };
+      if (!Array.isArray(current.entries)) current.entries = [];
+      const add = {
+        title: manifest.title,
+        name: manifest.title,
+        description: manifest.description,
+        author: manifest.author?.name || manifest.author?.contact || undefined,
+        manifestCid,
+        projectCid,
+        tags: manifest.tags || [],
+        createdAt: new Date().toISOString()
+      };
+      const byKey = new Map();
+      for (const e of current.entries) {
+        const key = e.manifestCid || e.cid || e.id || e.title;
+        if (key && key !== manifestCid) byKey.set(key, e);
+      }
+      byKey.set(manifestCid, add);
+      current.entries = Array.from(byKey.values());
+      await must('write_mfs', () => dropletFilesWrite(dc, dc.mfsPath, JSON.stringify(current)));
+      const mCid = await must('stat_mfs', () => dropletFilesStat(dc, dc.mfsPath));
+      await must('ipns_publish', () => dropletPublishIpns(dc, mCid));
+      newRegistryCid = mCid;
+      registryUpdated = true;
+    } catch (e) {
+      console.error('[publish] registry_upsert failed', e && e.message ? e.message : String(e));
     }
 
     const toIpfs = (cid) => cid ? `${dc.GW}/ipfs/${cid}` : undefined;
@@ -203,7 +205,7 @@ exports.main = async function (params) {
     return {
       statusCode: 200,
       headers: TEXT_HEADERS,
-      body: { manifestCid, projectCid, backupCid, links, registryCid: newRegistryCid }
+      body: { manifestCid, projectCid, backupCid, links, registryCid: newRegistryCid, registryUpdated, registryPath: dc.mfsPath }
     };
   } catch (e) {
     const msg = e && e.message ? e.message : 'Server error';

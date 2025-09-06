@@ -76,10 +76,12 @@
       <div v-if="result" class="result">
         <div class="row"><strong>Manifest CID:</strong> <code>{{ result.manifestCid }}</code></div>
         <div class="row" v-if="result.projectCid"><strong>Project CID:</strong> <code>{{ result.projectCid }}</code></div>
+        <div class="row" v-if="result.registryCid"><strong>Registry CID:</strong> <code>{{ result.registryCid }}</code> <span v-if="result.registryUpdated">(updated)</span></div>
         <div class="row" v-if="result.backupCid"><strong>Backup CID:</strong> <code>{{ result.backupCid }}</code></div>
         <div class="links">
           <a v-if="result.manifestCid" :href="gatewayUrlSafe(result.manifestCid)" target="_blank" rel="noopener">Open Manifest</a>
           <a v-if="result.projectCid" :href="gatewayUrlSafe(result.projectCid)" target="_blank" rel="noopener">Open Project</a>
+          <a v-if="result.registryCid" :href="gatewayUrlSafe(result.registryCid)" target="_blank" rel="noopener">Open Registry</a>
           <a v-if="result.backupCid" :href="gatewayUrlSafe(result.backupCid)" target="_blank" rel="noopener">Open Backup</a>
         </div>
       </div>
@@ -112,7 +114,7 @@ const pgpPassphrase = ref('');
 const includeBackup = ref(false);
 
 const publishing = ref(false);
-const result = ref<{ manifestCid: string; projectCid?: string; backupCid?: string } | null>(null);
+const result = ref<{ manifestCid: string; projectCid?: string; backupCid?: string; registryCid?: string; registryUpdated?: boolean } | null>(null);
 
 function gatewayUrl(cid: string): string { return ipfsGatewayUrl(cid); }
 
@@ -161,7 +163,7 @@ async function onPublish() {
       throw new Error(`Publish failed (${res.status}): ${txt}`);
     }
     const data = await res.json();
-    result.value = { manifestCid: data.manifestCid, projectCid: data.projectCid, backupCid: data.backupCid };
+    result.value = { manifestCid: data.manifestCid, projectCid: data.projectCid, backupCid: data.backupCid, registryCid: data.registryCid, registryUpdated: data.registryUpdated };
   } catch (err) {
     console.error(err);
     alert((err as any)?.message || 'Publish failed. Check console for details.');

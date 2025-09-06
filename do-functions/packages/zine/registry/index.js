@@ -68,27 +68,34 @@ exports.main = async function (params) {
           return { statusCode: 502, headers: TEXT_HEADERS, body: { error: e?.message || 'Fetch failed' } };
         }
       }
-      // If we have the droplet API, prefer reading directly from MFS (fast, no IPNS/gateway)
-      if (API && headers && !registryCid) {
+      // Always prefer reading directly from droplet MFS first (uses POST, Basic Auth, X-API-SECRET)
+      if (API && headers) {
         try {
           const res = await fetch(`${API}/files/read?arg=${encodeURIComponent(mfsPath)}`, { method: 'POST', headers });
           if (res.ok) {
             const txt = await res.text();
-            try { const json = JSON.parse(txt); return { statusCode: 200, headers: TEXT_HEADERS, body: json }; } catch {}
+            try { const json = JSON.parse(txt); return { statusCode: 200, headers: TEXT_HEADERS, body: json }; } catch (e) {
+              return { statusCode: 502, headers: TEXT_HEADERS, body: { error: 'Invalid JSON from MFS read' } };
+            }
           }
         } catch {}
       }
-      // Optional droplet lookup by IPNS key name when no CID specified
-      const byKeyName = params.key || params.name;
-      if (!registryCid && API && headers && byKeyName) {
-        try {
-          const list = await fetch(`${API}/key/list`, { method: 'POST', headers });
-          if (list.ok) {
-            const j = await list.json();
-            const id = (j?.Keys || []).find(k => k?.Name === byKeyName)?.Id;
-            if (id) registryCid = `ipns/${id}`;
-          }
-        } catch {}
+      // Optional droplet lookup by IPNS key when no MFS or as fallback
+      const byKeyName = params.key || params.name || 'manifest-key';
+      if (!registryCid) {
+        const ipnsId = process.env.IPFS_IPNS_KEY || params.IPFS_IPNS_KEY;
+        if (ipnsId && typeof ipnsId === 'string' && ipnsId.startsWith('k51')) {
+          registryCid = `ipns/${ipnsId}`;
+        } else if (API && headers && byKeyName) {
+          try {
+            const list = await fetch(`${API}/key/list`, { method: 'POST', headers });
+            if (list.ok) {
+              const j = await list.json();
+              const id = (j?.Keys || []).find(k => k?.Name === byKeyName)?.Id;
+              if (id) registryCid = `ipns/${id}`;
+            }
+          } catch {}
+        }
       }
       if (!registryCid) {
         return { statusCode: 404, headers: TEXT_HEADERS, body: { error: 'No registry CID configured' } };

@@ -69,7 +69,19 @@ async function dropletFilesStat(dc, path) {
 }
 
 async function dropletPublishIpns(dc, cid) {
-  const res = await fetch(`${dc.API}/name/publish?key=${encodeURIComponent(dc.ipnsKey)}&allow-offline=true&arg=${cid}`, { method: 'POST', headers: dc.headers });
+  // Accept either key NAME (preferred) or IPNS ID (k51...). If ID is supplied, resolve to its name.
+  let keyName = dc.ipnsKey || 'self';
+  if (keyName && keyName.startsWith('k51')) {
+    try {
+      const list = await fetch(`${dc.API}/key/list`, { method: 'POST', headers: dc.headers });
+      if (list.ok) {
+        const j = await list.json();
+        const hit = (j?.Keys || []).find((k) => k?.Id === keyName);
+        if (hit?.Name) keyName = hit.Name;
+      }
+    } catch {}
+  }
+  const res = await fetch(`${dc.API}/name/publish?key=${encodeURIComponent(keyName)}&allow-offline=true&arg=${cid}`, { method: 'POST', headers: dc.headers });
   if (!res.ok) throw new Error(`Droplet IPNS publish failed ${res.status}`);
   return res.json();
 }

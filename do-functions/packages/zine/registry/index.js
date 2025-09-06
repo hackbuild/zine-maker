@@ -54,8 +54,19 @@ exports.main = async function (params) {
     const headers = auth ? (apiSecret ? { Authorization: auth, 'X-API-SECRET': apiSecret } : { Authorization: auth }) : undefined;
     let registryCid = process.env.REGISTRY_CID || params.REGISTRY_CID || params.cid;
     const gatewayBase = host ? `http://${host}:8080` : 'https://ipfs.io';
+    const mfsPath = process.env.IPFS_MFS_MANIFEST_PATH || params.IPFS_MFS_MANIFEST_PATH || '/manifests/latest.json';
 
     if (method === 'GET') {
+      // If we have the droplet API, prefer reading directly from MFS (fast, no IPNS/gateway)
+      if (API && headers && !registryCid) {
+        try {
+          const res = await fetch(`${API}/files/read?arg=${encodeURIComponent(mfsPath)}`, { method: 'POST', headers });
+          if (res.ok) {
+            const txt = await res.text();
+            try { const json = JSON.parse(txt); return { statusCode: 200, headers: TEXT_HEADERS, body: json }; } catch {}
+          }
+        } catch {}
+      }
       // Optional droplet lookup by IPNS key name when no CID specified
       const byKeyName = params.key || params.name;
       if (!registryCid && API && headers && byKeyName) {

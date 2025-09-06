@@ -132,28 +132,25 @@ exports.main = async function (params) {
     // Upload manifest as JSON
     const manifestCid = await dropletAddJson(dc, 'manifest.json', manifest);
 
-    // Optionally update global registry (merge append)
-    // Droplet-backed registry and IPNS publish
+    // Upsert this publication into a multi-project registry at MFS (entries[]), then publish IPNS
     let newRegistryCid;
     {
       try {
         let current = await dropletFilesRead(dc, dc.mfsPath);
         if (!current || typeof current !== 'object') current = { schema: 'v1', entries: [] };
+        if (!Array.isArray(current.entries)) current.entries = [];
         const add = {
-          // Human-friendly
           title: manifest.title,
           name: manifest.title,
           description: manifest.description,
           author: manifest.author?.name || manifest.author?.contact || undefined,
-          // Content addresses
           manifestCid,
           projectCid,
-          // Extras
           tags: manifest.tags || [],
           createdAt: new Date().toISOString()
         };
         const byKey = new Map();
-        for (const e of Array.isArray(current.entries) ? current.entries : []) {
+        for (const e of current.entries) {
           const key = e.manifestCid || e.cid || e.id || e.title;
           if (key && key !== manifestCid) byKey.set(key, e);
         }

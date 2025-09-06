@@ -101,6 +101,21 @@ exports.main = async function (params) {
           // Continue to fallback paths
           console.error('[registry] MFS read threw', { mfsPath, error: e && e.message ? e.message : String(e) });
         }
+        // Try alternate legacy path automatically if primary fails
+        try {
+          const altPath = mfsPath.includes('/manifest/') ? mfsPath.replace('/manifest/', '/manifests/') : mfsPath.replace('/manifests/', '/manifest/');
+          if (altPath !== mfsPath) {
+            const { signal, cancel } = withTimeout(4000);
+            const body = new URLSearchParams();
+            body.set('arg', altPath);
+            const res = await fetch(`${API}/files/read`, { method: 'POST', headers: { ...headers, 'content-type': 'application/x-www-form-urlencoded' }, body, signal });
+            cancel();
+            if (res.ok) {
+              const txt = await res.text();
+              try { const json = JSON.parse(txt); return { statusCode: 200, headers: TEXT_HEADERS, body: JSON.stringify(json) }; } catch {}
+            }
+          }
+        } catch {}
       }
       // D) Get IPNS id for manifest-key
       let manifestId = undefined;

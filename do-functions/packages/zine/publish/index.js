@@ -49,7 +49,11 @@ async function dropletAddJson(dc, name, obj) {
 
 async function dropletFilesRead(dc, path) {
   const res = await fetch(`${dc.API}/files/read?arg=${encodeURIComponent(path)}`, { method: 'POST', headers: dc.headers });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    console.error('[publish] files/read failed', { path, status: res.status, body: body?.slice?.(0, 200) });
+    return null;
+  }
   const txt = await res.text();
   try { return JSON.parse(txt); } catch { return null; }
 }
@@ -58,12 +62,20 @@ async function dropletFilesWrite(dc, path, bytes) {
   const fd = new FormData();
   fd.set('data', new Blob([bytes], { type: 'application/json' }), 'data.json');
   const res = await fetch(`${dc.API}/files/write?arg=${encodeURIComponent(path)}&create=true&truncate=true`, { method: 'POST', headers: dc.headers, body: fd });
-  if (!res.ok) throw new Error(`Droplet write failed ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    console.error('[publish] files/write failed', { path, status: res.status, body: body?.slice?.(0, 200) });
+    throw new Error(`Droplet write failed ${res.status}`);
+  }
 }
 
 async function dropletFilesStat(dc, path) {
   const res = await fetch(`${dc.API}/files/stat?arg=${encodeURIComponent(path)}`, { method: 'POST', headers: dc.headers });
-  if (!res.ok) throw new Error(`Droplet stat failed ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    console.error('[publish] files/stat failed', { path, status: res.status, body: body?.slice?.(0, 200) });
+    throw new Error(`Droplet stat failed ${res.status}`);
+  }
   const j = await res.json();
   return j.Hash;
 }
@@ -82,7 +94,11 @@ async function dropletPublishIpns(dc, cid) {
     } catch {}
   }
   const res = await fetch(`${dc.API}/name/publish?key=${encodeURIComponent(keyName)}&allow-offline=true&arg=${cid}`, { method: 'POST', headers: dc.headers });
-  if (!res.ok) throw new Error(`Droplet IPNS publish failed ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    console.error('[publish] name/publish failed', { keyName, cid, status: res.status, body: body?.slice?.(0, 200) });
+    throw new Error(`Droplet IPNS publish failed ${res.status}`);
+  }
   return res.json();
 }
 
@@ -94,7 +110,7 @@ exports.main = async function (params) {
 
   try {
     const must = async (step, fn) => {
-      try { return await fn(); } catch (e) { throw new Error(`${step}:${e?.message || e}`); }
+      try { return await fn(); } catch (e) { console.error('[publish]', step, e && e.message ? e.message : e); throw new Error(`${step}:${e?.message || e}`); }
     };
     const dc = dropletConfig(params);
     if (!dc) {
@@ -193,6 +209,7 @@ exports.main = async function (params) {
   } catch (e) {
     const msg = e && e.message ? e.message : 'Server error';
     const step = typeof msg === 'string' && msg.includes(':') ? msg.split(':')[0] : undefined;
+    console.error('[publish] unhandled error', { step: step || 'publish_error', error: msg });
     return {
       statusCode: 400,
       headers: TEXT_HEADERS,

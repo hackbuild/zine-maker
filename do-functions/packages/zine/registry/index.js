@@ -16,7 +16,13 @@ function gatewayUrl(base, cid) {
   return b ? `${b}/${path}` : `https://ipfs.io/${path}`;
 }
 
-async function fetchRegistryJsonWithFallback(cid, preferredBase) {
+function withTimeout(ms) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), ms);
+  return { signal: controller.signal, cancel: () => clearTimeout(t) };
+}
+
+async function fetchRegistryJsonWithFallback(cid, preferredBase, timeoutMs = 7000) {
   const bases = Array.from(new Set([
     (preferredBase || '').replace(/\/$/, ''),
     'https://ipfs.io',
@@ -27,7 +33,9 @@ async function fetchRegistryJsonWithFallback(cid, preferredBase) {
   for (const base of bases) {
     try {
       const url = gatewayUrl(base, cid);
-      const res = await fetch(url, { redirect: 'follow' });
+      const { signal, cancel } = withTimeout(timeoutMs);
+      const res = await fetch(url, { redirect: 'follow', signal });
+      cancel();
       if (!res.ok) { lastErr = new Error(`HTTP ${res.status}`); continue; }
       return await res.json();
     } catch (e) { lastErr = e; }
@@ -65,20 +73,31 @@ exports.main = async function (params) {
           const json = await fetchRegistryJsonWithFallback(`ipfs/${cid}`, 'https://ipfs.io');
           return { statusCode: 200, headers: TEXT_HEADERS, body: json };
         } catch (e) {
+          console.error('[registry] projectCid fetch failed', { cid, error: e && e.message ? e.message : String(e) });
           return { statusCode: 502, headers: TEXT_HEADERS, body: { error: e?.message || 'Fetch failed' } };
         }
       }
       // Always prefer reading directly from droplet MFS first (uses POST, Basic Auth, X-API-SECRET)
       if (API && headers) {
         try {
-          const res = await fetch(`${API}/files/read?arg=${encodeURIComponent(mfsPath)}`, { method: 'POST', headers });
+          const { signal, cancel } = withTimeout(6000);
+          const res = await fetch(`${API}/files/read?arg=${encodeURIComponent(mfsPath)}`, { method: 'POST', headers, signal });
+          cancel();
           if (res.ok) {
             const txt = await res.text();
             try { const json = JSON.parse(txt); return { statusCode: 200, headers: TEXT_HEADERS, body: json }; } catch (e) {
+              console.error('[registry] Invalid JSON from MFS read', { mfsPath, error: e && e.message ? e.message : String(e) });
               return { statusCode: 502, headers: TEXT_HEADERS, body: { error: 'Invalid JSON from MFS read' } };
             }
           }
-        } catch {}
+          else {
+            const body = await res.text().catch(() => '');
+            console.error('[registry] MFS read failed', { mfsPath, status: res.status, body: body?.slice?.(0, 200) });
+          }
+        } catch (e) {
+          // Continue to fallback paths
+          console.error('[registry] MFS read threw', { mfsPath, error: e && e.message ? e.message : String(e) });
+        }
       }
       // Optional droplet lookup by IPNS key when no MFS or as fallback
       const byKeyName = params.key || params.name || 'manifest-key';
@@ -94,6 +113,10 @@ exports.main = async function (params) {
               const id = (j?.Keys || []).find(k => k?.Name === byKeyName)?.Id;
               if (id) registryCid = `ipns/${id}`;
             }
+            else {
+              const body = await list.text().catch(() => '');
+              console.error('[registry] key/list failed', { status: list.status, body: body?.slice?.(0, 200) });
+            }
           } catch {}
         }
       }
@@ -101,9 +124,10 @@ exports.main = async function (params) {
         return { statusCode: 404, headers: TEXT_HEADERS, body: { error: 'No registry CID configured' } };
       }
       try {
-        const json = await fetchRegistryJsonWithFallback(registryCid, gatewayBase);
+        const json = await fetchRegistryJsonWithFallback(registryCid, gatewayBase, 7000);
         return { statusCode: 200, headers: TEXT_HEADERS, body: json };
       } catch (e) {
+        console.error('[registry] gateway/IPNS fetch failed', { cid: registryCid, error: e && e.message ? e.message : String(e) });
         return { statusCode: 502, headers: TEXT_HEADERS, body: { error: e?.message || 'Fetch failed' } };
       }
     }
@@ -114,6 +138,7 @@ exports.main = async function (params) {
 
     return { statusCode: 405, headers: TEXT_HEADERS, body: { error: 'Method not allowed' } };
   } catch (e) {
+    console.error('[registry] unhandled error', { error: e && e.message ? e.message : String(e) });
     return { statusCode: 500, headers: TEXT_HEADERS, body: { error: e && e.message ? e.message : 'Server error' } };
   }
 };

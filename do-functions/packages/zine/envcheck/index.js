@@ -10,6 +10,7 @@ exports.main = async function (params) {
   if ((params.__ow_method || '').toUpperCase() === 'OPTIONS') {
     return { statusCode: 204, headers: TEXT_HEADERS, body: '' };
   }
+  try {
   const mask = (v) => (v ? (v.length <= 6 ? '***' : `${v.slice(0,3)}***${v.slice(-3)}`) : undefined);
   return {
     statusCode: 200,
@@ -26,6 +27,10 @@ exports.main = async function (params) {
       }
     }
   };
+  } catch (e) {
+    console.error('[envcheck] error', e && e.message ? e.message : String(e));
+    return { statusCode: 500, headers: TEXT_HEADERS, body: { error: 'envcheck failed' } };
+  }
 };
 
 

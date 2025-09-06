@@ -16,10 +16,10 @@ const TEXT_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8'
 };
 
-function gatewayUrl(base, cid) {
+function gatewayUrl(base, path) {
   const b = (base || '').replace(/\/$/, '');
-  const path = cid.startsWith('ipfs/') || cid.startsWith('ipns/') ? cid : `ipfs/${cid}`;
-  return b ? `${b}/${path}` : `https://ipfs.io/${path}`;
+  const p = path.startsWith('ipfs/') || path.startsWith('ipns/') ? path : `ipfs/${path}`;
+  return b ? `${b}/${p}` : `https://dweb.link/${p}`;
 }
 
 function withTimeout(ms) {
@@ -28,25 +28,21 @@ function withTimeout(ms) {
   return { signal: controller.signal, cancel: () => clearTimeout(t) };
 }
 
-async function fetchRegistryJsonWithFallback(cid, preferredBase, timeoutMs = 7000) {
-  const bases = Array.from(new Set([
-    (preferredBase || '').replace(/\/$/, ''),
-    'https://ipfs.io',
-    'https://cloudflare-ipfs.com',
-    'https://dweb.link'
-  ].filter(Boolean)));
+async function fetchFromBases(path, bases, timeoutMs = 7000) {
+  const uniq = Array.from(new Set(bases.filter(Boolean).map(b => b.replace(/\/$/, ''))));
   let lastErr;
-  for (const base of bases) {
+  for (const base of uniq) {
     try {
-      const url = gatewayUrl(base, cid);
+      const url = gatewayUrl(base, path);
       const { signal, cancel } = withTimeout(timeoutMs);
       const res = await fetch(url, { redirect: 'follow', signal });
       cancel();
       if (!res.ok) { lastErr = new Error(`HTTP ${res.status}`); continue; }
-      return await res.json();
+      const txt = await res.text();
+      try { return JSON.parse(txt); } catch (e) { lastErr = new Error('Invalid JSON'); }
     } catch (e) { lastErr = e; }
   }
-  throw lastErr || new Error('Failed to fetch registry');
+  throw lastErr || new Error('Failed to fetch JSON');
 }
 
 // Pinata removed for registry writes; registry is maintained via droplet MFS in publish flow.
@@ -58,42 +54,43 @@ exports.main = async function (params) {
 
   try {
     const method = (params.__ow_method || 'GET').toUpperCase();
-    // Droplet config
+    // Droplet config (A)
     const host = process.env.IPFS_DROPLET_HOST || params.IPFS_DROPLET_HOST;
     const pass = process.env.IPFS_DROPLET_ADMIN_PASS || params.IPFS_DROPLET_ADMIN_PASS;
     const user = process.env.IPFS_DROPLET_ADMIN_USER || params.IPFS_DROPLET_ADMIN_USER || 'ipfsadmin';
     const API = host ? `http://${host}:5002/api/v0` : undefined;
+    const GW = host ? `http://${host}:8080` : undefined;
     const auth = (host && pass) ? 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64') : undefined;
     const apiSecret = process.env.IPFS_API_SECRET || params.IPFS_API_SECRET;
     const headers = auth ? (apiSecret ? { Authorization: auth, 'X-API-SECRET': apiSecret } : { Authorization: auth }) : undefined;
-    let registryCid = process.env.REGISTRY_CID || params.REGISTRY_CID || params.cid;
-    const gatewayBase = host ? `http://${host}:8080` : 'https://ipfs.io';
     const mfsPath = process.env.IPFS_MFS_MANIFEST_PATH || params.IPFS_MFS_MANIFEST_PATH || '/manifests/latest.json';
 
     if (method === 'GET') {
-      // Direct project fetch by CID via public gateways (prefer ipfs.io)
+      // F) Fetch a specific project JSON by CID (prefer dweb)
       if (params.projectCid) {
         const cid = String(params.projectCid || '').trim();
-        if (!cid) return { statusCode: 400, headers: TEXT_HEADERS, body: { error: 'Missing projectCid' } };
+        if (!cid) return { statusCode: 400, headers: TEXT_HEADERS, body: JSON.stringify({ error: 'Missing projectCid' }) };
         try {
-          const json = await fetchRegistryJsonWithFallback(`ipfs/${cid}`, 'https://ipfs.io');
-          return { statusCode: 200, headers: TEXT_HEADERS, body: json };
+          const json = await fetchFromBases(`ipfs/${cid}`, ['https://dweb.link', GW, 'https://cloudflare-ipfs.com', 'https://ipfs.io']);
+          return { statusCode: 200, headers: TEXT_HEADERS, body: JSON.stringify(json) };
         } catch (e) {
           console.error('[registry] projectCid fetch failed', { cid, error: e && e.message ? e.message : String(e) });
-          return { statusCode: 502, headers: TEXT_HEADERS, body: { error: e?.message || 'Fetch failed' } };
+          return { statusCode: 502, headers: TEXT_HEADERS, body: JSON.stringify({ error: e?.message || 'Fetch failed' }) };
         }
       }
-      // Always prefer reading directly from droplet MFS first (uses POST, Basic Auth, X-API-SECRET)
+      // C) Read manifest from MFS (preferred)
       if (API && headers) {
         try {
           const { signal, cancel } = withTimeout(6000);
-          const res = await fetch(`${API}/files/read?arg=${encodeURIComponent(mfsPath)}`, { method: 'POST', headers, signal });
+          const body = new URLSearchParams();
+          body.set('arg', mfsPath);
+          const res = await fetch(`${API}/files/read`, { method: 'POST', headers: { ...headers, 'content-type': 'application/x-www-form-urlencoded' }, body, signal });
           cancel();
           if (res.ok) {
             const txt = await res.text();
-            try { const json = JSON.parse(txt); return { statusCode: 200, headers: TEXT_HEADERS, body: json }; } catch (e) {
+            try { const json = JSON.parse(txt); return { statusCode: 200, headers: TEXT_HEADERS, body: JSON.stringify(json) }; } catch (e) {
               console.error('[registry] Invalid JSON from MFS read', { mfsPath, error: e && e.message ? e.message : String(e) });
-              return { statusCode: 502, headers: TEXT_HEADERS, body: { error: 'Invalid JSON from MFS read' } };
+              // fall through to gateway
             }
           }
           else {
@@ -105,47 +102,44 @@ exports.main = async function (params) {
           console.error('[registry] MFS read threw', { mfsPath, error: e && e.message ? e.message : String(e) });
         }
       }
-      // Optional droplet lookup by IPNS key when no MFS or as fallback
-      const byKeyName = params.key || params.name || 'manifest-key';
-      if (!registryCid) {
-        const ipnsId = process.env.IPFS_IPNS_KEY || params.IPFS_IPNS_KEY;
-        if (ipnsId && typeof ipnsId === 'string' && ipnsId.startsWith('k51')) {
-          registryCid = `ipns/${ipnsId}`;
-        } else if (API && headers && byKeyName) {
-          try {
-            const list = await fetch(`${API}/key/list`, { method: 'POST', headers });
-            if (list.ok) {
-              const j = await list.json();
-              const id = (j?.Keys || []).find(k => k?.Name === byKeyName)?.Id;
-              if (id) registryCid = `ipns/${id}`;
-            }
-            else {
-              const body = await list.text().catch(() => '');
-              console.error('[registry] key/list failed', { status: list.status, body: body?.slice?.(0, 200) });
-            }
-          } catch {}
-        }
+      // D) Get IPNS id for manifest-key
+      let manifestId = undefined;
+      const ipnsId = process.env.IPFS_IPNS_KEY || params.IPFS_IPNS_KEY;
+      if (ipnsId && typeof ipnsId === 'string' && ipnsId.startsWith('k51')) {
+        manifestId = ipnsId;
+      } else if (API && headers) {
+        try {
+          const list = await fetch(`${API}/key/list`, { method: 'POST', headers });
+          if (list.ok) {
+            const j = await list.json();
+            manifestId = (j?.Keys || []).find(k => k?.Name === 'manifest-key')?.Id;
+          } else {
+            const body = await list.text().catch(() => '');
+            console.error('[registry] key/list failed', { status: list.status, body: body?.slice?.(0, 200) });
+          }
+        } catch {}
       }
-      if (!registryCid) {
-        return { statusCode: 404, headers: TEXT_HEADERS, body: { error: 'No registry CID configured' } };
+      if (!manifestId) {
+        return { statusCode: 404, headers: TEXT_HEADERS, body: JSON.stringify({ error: 'No manifest IPNS id' }) };
       }
+      // E) Fallback: fetch manifest via gateway (droplet -> dweb)
       try {
-        const json = await fetchRegistryJsonWithFallback(registryCid, gatewayBase, 7000);
-        return { statusCode: 200, headers: TEXT_HEADERS, body: json };
+        const json = await fetchFromBases(`ipns/${manifestId}`, [GW, 'https://dweb.link', 'https://cloudflare-ipfs.com', 'https://ipfs.io'], 7000);
+        return { statusCode: 200, headers: TEXT_HEADERS, body: JSON.stringify(json) };
       } catch (e) {
-        console.error('[registry] gateway/IPNS fetch failed', { cid: registryCid, error: e && e.message ? e.message : String(e) });
-        return { statusCode: 502, headers: TEXT_HEADERS, body: { error: e?.message || 'Fetch failed' } };
+        console.error('[registry] gateway/IPNS fetch failed', { id: manifestId, error: e && e.message ? e.message : String(e) });
+        return { statusCode: 502, headers: TEXT_HEADERS, body: JSON.stringify({ error: e?.message || 'Fetch failed' }) };
       }
     }
 
     if (method === 'POST') {
-      return { statusCode: 405, headers: TEXT_HEADERS, body: { error: 'Writes disabled here; publish handles registry updates' } };
+      return { statusCode: 405, headers: TEXT_HEADERS, body: JSON.stringify({ error: 'Writes disabled here; publish handles registry updates' }) };
     }
 
-    return { statusCode: 405, headers: TEXT_HEADERS, body: { error: 'Method not allowed' } };
+    return { statusCode: 405, headers: TEXT_HEADERS, body: JSON.stringify({ error: 'Method not allowed' }) };
   } catch (e) {
     console.error('[registry] unhandled error', { error: e && e.message ? e.message : String(e) });
-    return { statusCode: 500, headers: TEXT_HEADERS, body: { error: e && e.message ? e.message : 'Server error' } };
+    return { statusCode: 500, headers: TEXT_HEADERS, body: JSON.stringify({ error: e && e.message ? e.message : 'Server error' }) };
   }
 };
 

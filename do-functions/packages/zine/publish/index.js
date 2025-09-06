@@ -54,7 +54,19 @@ async function dropletFilesRead(dc, path) {
     return null;
   }
   const txt = await res.text();
-  try { return JSON.parse(txt); } catch { return null; }
+  try { return JSON.parse(txt); } catch (e) {
+    console.error('[publish] files/read JSON parse failed, falling back to stat+gateway', { path, error: e && e.message ? e.message : String(e) });
+    try {
+      const cid = await dropletFilesStat(dc, path);
+      const gw = `${dc.GW}/ipfs/${cid}`;
+      const r2 = await fetch(gw, { redirect: 'follow' });
+      if (!r2.ok) throw new Error(`HTTP ${r2.status}`);
+      return await r2.json();
+    } catch (e2) {
+      console.error('[publish] gateway fallback failed', { path, error: e2 && e2.message ? e2.message : String(e2) });
+      return null;
+    }
+  }
 }
 
 async function dropletFilesWrite(dc, path, bytes) {
@@ -168,7 +180,23 @@ exports.main = async function (params) {
     try {
       let current = await must('read_mfs', () => dropletFilesRead(dc, dc.mfsPath));
       if (!current || typeof current !== 'object') current = { schema: 'v1', entries: [] };
-      if (!Array.isArray(current.entries)) current.entries = [];
+      // Normalize shape: support legacy { files: [] } or { items: [] }
+      if (!Array.isArray(current.entries)) {
+        const maybe = Array.isArray(current.items) ? current.items : (Array.isArray(current.files) ? current.files : []);
+        current.entries = Array.isArray(current.entries) ? current.entries : [];
+        // If legacy files array exists and entries is empty, carry it over minimally
+        if (current.entries.length === 0 && maybe.length) {
+          current.entries = maybe.map((f) => ({
+            title: f.title || f.path || f.name || 'Untitled',
+            name: f.name || f.path || f.title || 'untitled',
+            description: f.description,
+            manifestCid: f.manifestCid || f.cid,
+            projectCid: f.projectCid || undefined,
+            tags: f.tags || [],
+            createdAt: f.createdAt || new Date().toISOString()
+          })).filter((e) => e.manifestCid);
+        }
+      }
       const add = {
         title: manifest.title,
         name: manifest.title,

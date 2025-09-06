@@ -1,5 +1,10 @@
 'use strict';
-try { if (typeof fetch === 'undefined') { const { fetch: f } = require('undici'); if (f) global.fetch = f; } } catch {}
+try {
+  const undici = require('undici');
+  if (typeof fetch === 'undefined' && undici.fetch) global.fetch = undici.fetch;
+  if (typeof FormData === 'undefined' && undici.FormData) global.FormData = undici.FormData;
+  if (typeof Blob === 'undefined' && undici.Blob) global.Blob = undici.Blob;
+} catch {}
 
 // Web-exported function to fetch or update a global zine registry manifest stored on IPFS.
 // Uses your internal IPFS node (droplet) if configured; otherwise falls back to public gateways for reads.
@@ -7,7 +12,8 @@ try { if (typeof fetch === 'undefined') { const { fetch: f } = require('undici')
 const TEXT_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'OPTIONS,GET,POST',
-  'Access-Control-Allow-Headers': 'content-type,authorization'
+  'Access-Control-Allow-Headers': 'content-type,authorization,x-api-secret,X-API-SECRET',
+  'Content-Type': 'application/json; charset=utf-8'
 };
 
 function gatewayUrl(base, cid) {

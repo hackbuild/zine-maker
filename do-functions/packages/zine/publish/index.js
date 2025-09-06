@@ -1,12 +1,10 @@
 'use strict';
-// Ensure Blob exists in Node runtime (DO Functions) by polyfilling from buffer
-try { if (typeof Blob === 'undefined') { global.Blob = require('buffer').Blob; } } catch {}
-// Ensure fetch exists in Node runtime (prefer undici)
+// Ensures fetch/FormData/Blob exist in Node runtime (DO Functions)
 try {
-  if (typeof fetch === 'undefined') {
-    const { fetch: undiciFetch } = require('undici');
-    if (undiciFetch) global.fetch = undiciFetch;
-  }
+  const undici = require('undici');
+  if (typeof fetch === 'undefined' && undici.fetch) global.fetch = undici.fetch;
+  if (typeof FormData === 'undefined' && undici.FormData) global.FormData = undici.FormData;
+  if (typeof Blob === 'undefined' && undici.Blob) global.Blob = undici.Blob;
 } catch {}
 
 // DigitalOcean Functions (OpenWhisk) action entry
@@ -15,7 +13,8 @@ try {
 const TEXT_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'OPTIONS,POST',
-  'Access-Control-Allow-Headers': 'content-type,authorization'
+  'Access-Control-Allow-Headers': 'content-type,authorization,x-api-secret,X-API-SECRET',
+  'Content-Type': 'application/json; charset=utf-8'
 };
 
 // Pinata removed; we exclusively use internal IPFS droplet below

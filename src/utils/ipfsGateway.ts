@@ -1,7 +1,7 @@
 const GATEWAYS = [
-  (path: string) => `https://ipfs.io/${path}`,
+  (path: string) => `https://dweb.link/${path}`,
   (path: string) => `https://cloudflare-ipfs.com/${path}`,
-  (path: string) => `https://dweb.link/${path}`
+  (path: string) => `https://ipfs.io/${path}`
 ];
 
 function toPath(cidOrName: string): string {

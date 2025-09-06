@@ -93,6 +93,9 @@ exports.main = async function (params) {
   }
 
   try {
+    const must = async (step, fn) => {
+      try { return await fn(); } catch (e) { throw new Error(`${step}:${e?.message || e}`); }
+    };
     const dc = dropletConfig(params);
     if (!dc) {
       return { statusCode: 400, headers: TEXT_HEADERS, body: { error: 'Missing IPFS droplet configuration' } };
@@ -112,11 +115,11 @@ exports.main = async function (params) {
     const projectJson = JSON.stringify(project, (_k, v) => (v && v.toISOString ? v.toISOString() : v));
 
     // Upload project as JSON (prefer droplet)
-    const projectCid = await dropletAddJson(dc, 'project.json', JSON.parse(projectJson));
+    const projectCid = await must('add_project', () => dropletAddJson(dc, 'project.json', JSON.parse(projectJson)));
 
     let backupCid;
     if (payload.backup) {
-      backupCid = await dropletAddJson(dc, 'backup.json', payload.backup);
+      backupCid = await must('add_backup', () => dropletAddJson(dc, 'backup.json', payload.backup));
     }
 
     // Build manifest aligned with src/types ZineManifest
@@ -142,13 +145,13 @@ exports.main = async function (params) {
     }
 
     // Upload manifest as JSON
-    const manifestCid = await dropletAddJson(dc, 'manifest.json', manifest);
+    const manifestCid = await must('add_manifest', () => dropletAddJson(dc, 'manifest.json', manifest));
 
     // Upsert this publication into a multi-project registry at MFS (entries[]), then publish IPNS
     let newRegistryCid;
     {
       try {
-        let current = await dropletFilesRead(dc, dc.mfsPath);
+        let current = await must('read_mfs', () => dropletFilesRead(dc, dc.mfsPath));
         if (!current || typeof current !== 'object') current = { schema: 'v1', entries: [] };
         if (!Array.isArray(current.entries)) current.entries = [];
         const add = {
@@ -168,9 +171,9 @@ exports.main = async function (params) {
         }
         byKey.set(manifestCid, add);
         current.entries = Array.from(byKey.values());
-        await dropletFilesWrite(dc, dc.mfsPath, JSON.stringify(current));
-        const mCid = await dropletFilesStat(dc, dc.mfsPath);
-        await dropletPublishIpns(dc, mCid);
+        await must('write_mfs', () => dropletFilesWrite(dc, dc.mfsPath, JSON.stringify(current)));
+        const mCid = await must('stat_mfs', () => dropletFilesStat(dc, dc.mfsPath));
+        await must('ipns_publish', () => dropletPublishIpns(dc, mCid));
         newRegistryCid = mCid;
       } catch {}
     }
@@ -188,10 +191,12 @@ exports.main = async function (params) {
       body: { manifestCid, projectCid, backupCid, links, registryCid: newRegistryCid }
     };
   } catch (e) {
+    const msg = e && e.message ? e.message : 'Server error';
+    const step = typeof msg === 'string' && msg.includes(':') ? msg.split(':')[0] : undefined;
     return {
-      statusCode: 500,
+      statusCode: 400,
       headers: TEXT_HEADERS,
-      body: { error: e && e.message ? e.message : 'Server error' }
+      body: { error: 'There was an error processing your request.', code: step || 'publish_error', detail: msg }
     };
   }
 };

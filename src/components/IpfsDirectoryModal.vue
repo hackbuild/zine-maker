@@ -15,7 +15,7 @@
             <div class="meta small">{{ item.cid }}</div>
           </div>
           <div class="actions">
-            <a class="btn" :href="gatewayUrl(item.cid)" target="_blank" rel="noopener">Open</a>
+            <button class="btn" @click="openInApp(item.cid)">Open</button>
           </div>
         </li>
       </ul>
@@ -27,11 +27,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { gatewayUrl } from '@/utils/ipfsGateway';
+import { useProjectStore } from '@/stores/project';
 
 defineEmits<{ (e: 'close'): void }>();
 
 const cid = ref('');
 const items = ref<{ cid: string; title: string; description?: string }[]>([]);
+const projectStore = useProjectStore();
 
 async function load() {
   // Optional override from query string
@@ -60,10 +62,10 @@ async function load() {
       return;
     }
   }
-  // Otherwise, fetch latest registry by IPNS key via our backend
+  // Otherwise, fetch latest registry via backend (uses env-configured IPFS node)
   try {
     const apiBase = window.location.origin.replace(/\/$/, '');
-    const res = await fetch(`${apiBase}/api/zine/registry?key=manifest-key`, { redirect: 'follow' });
+    const res = await fetch(`${apiBase}/api/zine/registry`, { redirect: 'follow' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const list = Array.isArray(data?.items) ? data.items : (Array.isArray(data?.entries) ? data.entries : []);
@@ -79,6 +81,23 @@ async function load() {
 }
 
 onMounted(() => { load(); });
+
+async function openInApp(projectCid: string) {
+  try {
+    const apiBase = window.location.origin.replace(/\/$/, '');
+    const res = await fetch(`${apiBase}/api/zine/registry?projectCid=${encodeURIComponent(projectCid)}`, { redirect: 'follow' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const project = await res.json();
+    // Expect either wrapped { project, assets? } or direct project
+    const p = project?.project || project;
+    if (!p?.id) throw new Error('Invalid project JSON');
+    await projectStore.loadProject(p);
+    alert('Project loaded from IPFS');
+  } catch (e) {
+    console.error(e);
+    alert('Failed to load project JSON');
+  }
+}
 </script>
 
 <style scoped>

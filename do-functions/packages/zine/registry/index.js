@@ -57,6 +57,17 @@ exports.main = async function (params) {
     const mfsPath = process.env.IPFS_MFS_MANIFEST_PATH || params.IPFS_MFS_MANIFEST_PATH || '/manifests/latest.json';
 
     if (method === 'GET') {
+      // Direct project fetch by CID via public gateways (prefer ipfs.io)
+      if (params.projectCid) {
+        const cid = String(params.projectCid || '').trim();
+        if (!cid) return { statusCode: 400, headers: TEXT_HEADERS, body: { error: 'Missing projectCid' } };
+        try {
+          const json = await fetchRegistryJsonWithFallback(`ipfs/${cid}`, 'https://ipfs.io');
+          return { statusCode: 200, headers: TEXT_HEADERS, body: json };
+        } catch (e) {
+          return { statusCode: 502, headers: TEXT_HEADERS, body: { error: e?.message || 'Fetch failed' } };
+        }
+      }
       // If we have the droplet API, prefer reading directly from MFS (fast, no IPNS/gateway)
       if (API && headers && !registryCid) {
         try {
